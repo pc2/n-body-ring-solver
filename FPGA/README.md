@@ -14,7 +14,7 @@ The executables are:
 
 The kernels follow a specific naming scheme, this scheme is different for emulation and full compilation:
 - emulation:
-    - ring_**type**_**integration** **suffix** **#program**.aocx
+    - ring\_**type**\_**integration**\_**suffix** **#program**.aocx
     - type: either **lrb** or **lrbd** for single device and multi device programs
     - integration: lf (leapfrog)
     - suffix: any additional information; should start with _
@@ -29,7 +29,7 @@ The kernels follow a specific naming scheme, this scheme is different for emulat
         - ring_lrbd_lf_no_sync_local0.aocx (lrbd solver leap frog implementation, program number 0)
         - ring_lrbd_lf_no_sync_local1.aocx (lrbd solver leap frog implementation, program number 1)
 - full compilation and synthesis:
-    - ring_**type**_**LDIMxRDIM**_**integration** **suffix**.aocx
+    - ring\_**type**\_**LDIMxRDIM**\_**integration**\_**suffix**.aocx
     - type: either **lrb** or **lrbd**
     - #LDIM: Number of PEs in local dimension
     - #RDIM: Number of PEs in remote dimension
