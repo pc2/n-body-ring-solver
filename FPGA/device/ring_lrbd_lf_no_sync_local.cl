@@ -42,25 +42,15 @@ typedef double3 force_t;
     #define PRELOAD_REMOTE_SIZE (PRELOAD_REMOTE_BLOCKS * REMOTE_BLOCK_SIZE)
 
     #ifdef EMULATION0
-        channel particle_t io_chan_input_part   __attribute__((io("input_0_output_3_part"), depth(PRELOAD_REMOTE_SIZE)));
+        channel particle_t io_chan_input_part   __attribute__((io("input_0_output_1_part"), depth(PRELOAD_REMOTE_SIZE)));
         channel particle_t io_chan_output_part  __attribute__((io("input_1_output_0_part"), depth(PRELOAD_REMOTE_SIZE)));
-        channel particle_t io_chan_input_force  __attribute__((io("input_0_output_3_force"), depth(REMOTE_BLOCK_SIZE)));
+        channel particle_t io_chan_input_force  __attribute__((io("input_0_output_1_force"), depth(REMOTE_BLOCK_SIZE)));
         channel particle_t io_chan_output_force __attribute__((io("input_1_output_0_force"), depth(REMOTE_BLOCK_SIZE)));
     #elif EMULATION1
         channel particle_t io_chan_input_part   __attribute__((io("input_1_output_0_part"), depth(PRELOAD_REMOTE_SIZE)));
-        channel particle_t io_chan_output_part  __attribute__((io("input_2_output_1_part"), depth(PRELOAD_REMOTE_SIZE)));
+        channel particle_t io_chan_output_part  __attribute__((io("input_0_output_1_part"), depth(PRELOAD_REMOTE_SIZE)));
         channel particle_t io_chan_input_force  __attribute__((io("input_1_output_0_force"), depth(REMOTE_BLOCK_SIZE)));
-        channel particle_t io_chan_output_force __attribute__((io("input_2_output_1_force"), depth(REMOTE_BLOCK_SIZE)));
-    #elif EMULATION2
-        channel particle_t io_chan_input_part   __attribute__((io("input_2_output_1_part"), depth(PRELOAD_REMOTE_SIZE)));
-        channel particle_t io_chan_output_part  __attribute__((io("input_3_output_2_part"), depth(PRELOAD_REMOTE_SIZE)));
-        channel particle_t io_chan_input_force  __attribute__((io("input_2_output_1_force"), depth(REMOTE_BLOCK_SIZE)));
-        channel particle_t io_chan_output_force __attribute__((io("input_3_output_2_force"), depth(REMOTE_BLOCK_SIZE)));
-    #elif EMULATION3
-        channel particle_t io_chan_input_part   __attribute__((io("input_3_output_2_part"), depth(PRELOAD_REMOTE_SIZE)));
-        channel particle_t io_chan_output_part  __attribute__((io("input_0_output_3_part"), depth(PRELOAD_REMOTE_SIZE)));
-        channel particle_t io_chan_input_force  __attribute__((io("input_3_output_2_force"), depth(REMOTE_BLOCK_SIZE)));
-        channel particle_t io_chan_output_force __attribute__((io("input_0_output_3_force"), depth(REMOTE_BLOCK_SIZE)));
+        channel particle_t io_chan_output_force __attribute__((io("input_0_output_1_force"), depth(REMOTE_BLOCK_SIZE)));
     #endif
 #else
     //Always choose PE_LOCAL_CNT >= PE_REMOTE_CNT

@@ -42,23 +42,15 @@ ring_lrb_lf_no_sync_local_nd: main.emu ring_lrb_lf_no_sync_local_nd0.aocx
 ring_lrb_lf_no_sync_local_nd0.aocx: device/ring_lrb_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrb_lf_no_sync_local.cl -o ring_lrb_lf_no_sync_local0.aocx -ffp-reassoc -ffp-contract=fast
 
-ring_lrbd_lf_no_sync_local: main.emu ring_lrbd_lf_no_sync_local0.aocx ring_lrbd_lf_no_sync_local1_nd.aocx ring_lrbd_lf_no_sync_local2_nd.aocx ring_lrbd_lf_no_sync_local3_nd.aocx
+ring_lrbd_lf_no_sync_local: main.emu ring_lrbd_lf_no_sync_local0.aocx ring_lrbd_lf_no_sync_local1_nd.aocx
 ring_lrbd_lf_no_sync_local0.aocx: device/ring_lrbd_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local0.aocx -ffp-reassoc -ffp-contract=fast -DDBG_PRINT -DCOMPILE_EMULATION -DEMULATION0
 ring_lrbd_lf_no_sync_local1.aocx: device/ring_lrbd_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local1.aocx -ffp-reassoc -ffp-contract=fast -DDBG_PRINT -DCOMPILE_EMULATION -DEMULATION1
-ring_lrbd_lf_no_sync_local2.aocx: device/ring_lrbd_lf_no_sync_local.cl
-		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local2.aocx -ffp-reassoc -ffp-contract=fast -DDBG_PRINT -DCOMPILE_EMULATION -DEMULATION2
-ring_lrbd_lf_no_sync_local3.aocx: device/ring_lrbd_lf_no_sync_local.cl
-		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local3.aocx -ffp-reassoc -ffp-contract=fast -DDBG_PRINT -DCOMPILE_EMULATION -DEMULATION3
 ring_lrbd_lf_no_sync_local0_nd.aocx: device/ring_lrbd_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local0.aocx -ffp-reassoc -ffp-contract=fast -DCOMPILE_EMULATION -DEMULATION0
 ring_lrbd_lf_no_sync_local1_nd.aocx: device/ring_lrbd_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local1.aocx -ffp-reassoc -ffp-contract=fast -DCOMPILE_EMULATION -DEMULATION1
-ring_lrbd_lf_no_sync_local2_nd.aocx: device/ring_lrbd_lf_no_sync_local.cl
-		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local2.aocx -ffp-reassoc -ffp-contract=fast -DCOMPILE_EMULATION -DEMULATION2
-ring_lrbd_lf_no_sync_local3_nd.aocx: device/ring_lrbd_lf_no_sync_local.cl
-		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local3.aocx -ffp-reassoc -ffp-contract=fast -DCOMPILE_EMULATION -DEMULATION3
 
 #OpenCL reports
 report_lrb_lf_no_sync_local:
