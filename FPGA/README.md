@@ -28,8 +28,8 @@ The kernels follow a specific naming scheme, this scheme is different for emulat
     - examples:
         - ring_lrbd_lf_no_sync_local0.aocx (lrbd solver leap frog implementation, program number 0)
         - ring_lrbd_lf_no_sync_local1.aocx (lrbd solver leap frog implementation, program number 1)
-- full compilation:
-    - ring_**type**_**#LDIMx#RDIM**_**integration** **suffix**.aocx
+- full compilation and synthesis:
+    - ring_**type**_**LDIMxRDIM**_**integration** **suffix**.aocx
     - type: either **lrb** or **lrbd**
     - #LDIM: Number of PEs in local dimension
     - #RDIM: Number of PEs in remote dimension
