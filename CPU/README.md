@@ -117,10 +117,10 @@ Example:
 #### Hybrid solver
 
 The hybrid solver is a distributed implementation using MPI ranks. Each MPI rank calculates the force pair interactions using the omp-solver. For the balance between MPI ranks and OpenMP threads, srun is used. The solver itself uses the ```-t, -N -s, -V``` command line arguments. Example:
-- ```srun -N <#Nodes> -n <#Mpi-ranks> --cpus-per-task=<#Threads-per-rank> --cpu_bind=cores ./main.out -t hybrid -N 10000 -s 10 -V AVX512-RSQRT-4I```
+- ```srun -N <#Nodes> -n <#Mpi-ranks> --cpus-per-task=<#Threads-per-rank> --cpu_bind=sockets ./main.out -t hybrid -N 10000 -s 10 -V AVX512-RSQRT-4I```
 Also specify which account and partition srun should use.
 
-The hybrid solver can also be used for weak- and strong scaling benchmarks. Both benchmarks use the ```-t, -N, -s, -o, -V``` command line arguments. The number of MPI-ranks can not be adjusted from within the solver. Therefore, a job script is used to carry out the benchmark. An example is the **hybrid_multi_node_script.sh** script.
+The hybrid solver can also be used for weak- and strong scaling benchmarks. Both benchmarks use the ```-t, -N, -s, -o, -V``` command line arguments. The number of MPI-ranks can not be adjusted from within the solver. Therefore, a job script is used to carry out the benchmark. An example is the **scaling_benchmark.sh** script.
 ```
 
 For the strong scaling benchmark, make sure **N** is divisible by all tested numbers of MPI ranks. For that, determine the LCM of the set of MPI ranks and use a multiple of that. In case **N** is not divisible by the number of MPI ranks, the execution is skipped. An example for the strong scaling benchmark can also be found in the **hybrid_multi_node_script.sh** script:
