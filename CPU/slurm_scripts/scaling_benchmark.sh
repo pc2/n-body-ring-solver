@@ -1,15 +1,15 @@
 #!/bin/bash
-#SBATCH -N 12
+#SBATCH -N 4
 #SBATCH -p fpga
 #SBATCH -A hpc-lco-kenter
 #SBATCH -t 30:00
 #SBATCH --constraint=emul
 
-source load_likwid.sh
+source modules.sh
 
 for strong_N in 3072 6144 18432 
 do
-    for nodes in 1 2 4 8 12
+    for nodes in 1 2 4 #8 12
     do
         num_tasks=$(( 2 * $nodes ))
         srun -N $nodes -n $num_tasks --cpu_bind=verbose,sockets ./main.out -N $strong_N -s 10000 -t hybrid-strong -o "strong_scaling_CPU.csv" -V AVX512-RSQRT-4I
@@ -18,7 +18,7 @@ done
 
 for weak_N in 1536 32768
 do
-    for nodes in 1 2 4 8 12
+    for nodes in 1 2 4 #8 12
     do
         #Determine baseline for weak scaling
         num_tasks=$(( 2 * $nodes ))

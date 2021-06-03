@@ -7,7 +7,7 @@
 #SBATCH -t 30:00
 #SBATCH --collectors=off
 
-source load_likwid.sh
+source modules.sh
 
 likwid-pin -C 1 ./single_core_bench.out -start 128 -step 128 -n 128
 
