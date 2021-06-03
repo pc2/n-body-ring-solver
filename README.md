@@ -28,7 +28,7 @@ Make sure to specify your account. The results of the Benchmarks will be saved t
 
 To get power consumption measurements, please apply for job-specific monitoring:
 https://wikis.uni-paderborn.de/pc2doc/Job-Specific-Monitoring  
-The single node benchmark waits 60s between executions with different problem sizes, such that the power consumption data can be related to executions.
+The single node benchmark idles 60 seconds between executions with different problem sizes, such that the power consumption data can be related to the executions.
 If job-specific monitoring is not accessible, it is sufficient to assume that the power consumption for problem sizes larger than 2048 is in the range of [210W+20W - 300W+20W] for the CPUs+DRAM. For smaller problem sizes the power consumption is more inconsistant, but in the range of [190W+20W - 210W+20W].
 
 
@@ -49,7 +49,7 @@ sbatch -A your-account syn_scripts/syn_lrbd_lf_sp_8x8L32_s42.sh
 ```
 This will synthesize hardware images for a 2x2, 4x4 solver in double precision and a 8x8 solver in single precision.
 Note, that the performance results for the 4x4 solver will deviate from the results shown in the paper. This is due to a different seed used in synthesis. For the image used in the paper no seed was specified and it could not be determined after the fact. Still, the authors would be able to provide the hardware image on request.      
-After the hardware synthesis finished, the single node benchmark can be obtained by using the `single_node_experiments.sh` script.
+After the hardware synthesis has finished, the single node benchmark can be obtained using the `single_node_experiments.sh` script.
 Here, the synthesized implementations will be tested for input sizes ranging from N=128-32768.
 ```
 srun -p fpga -A your-account --constraint=19.4.0_max -N 1 --fpgalink=ringN -t 1:00:00 --pty /bin/bash
