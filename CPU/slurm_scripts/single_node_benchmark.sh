@@ -2,7 +2,6 @@
 
 #SBATCH -N 1
 #SBATCH -J single_node_Nbody_benchmark
-#SBATCH -A hpc-lco-kenter
 #SBATCH -p batch
 #SBATCH -t 2:00:00
 #SBATCH --recommendations=on

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 #SBATCH -J "NBody Reduced LRB solver first synthesis"
-#SBATCH -A hpc-lco-kenter
 #SBATCH -p fpgasyn
 #SBATCH --mem=120000MB
 #SBATCH -t 48:00:00

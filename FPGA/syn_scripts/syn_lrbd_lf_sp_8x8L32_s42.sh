@@ -1,7 +1,6 @@
 #!/bin/bash
 
 #SBATCH -J "NBody Reduced LRBD solver single precision syn"
-#SBATCH -A hpc-lco-kenter
 #SBATCH -p fpgasyn
 #SBATCH --mem=120000MB
 #SBATCH -t 48:00:00
