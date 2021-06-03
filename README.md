@@ -70,3 +70,21 @@ srun -p fpga -A your-account --constraint=19.4.0_max -N $nodes --fpgalink=ringN 
 ./main.out -t lrbd -suffix _no_sync_local_s13 -i lf -order 2 -N $curr_N  -T 30.0 -f_max 243.33 -LPE 4 -RPE 4 -nd -topology ringN -warm-up 2 -o output.csv
 ```
 Where `$nodes` is the number of requested nodes and `$curr_N` is the input size.
+
+### Plotting
+The plotting was done using the scripts and csv files in the **final_results** directory with matplotlib 3.1.2.
+The plots are rendered by the following scripts invocations:
+```
+cd final_results
+python3 csvplot_single_core.py single_core.csv 0,0,0,0,0,0,0,0 4,8,10,12,17,18,19,20 0,0,0,0,0,0,0,0 64,64,64,64,64,64,64,64 1 "Single Core Performance" "N" "Effective MPairs/s" "AVX2,AVX512,AVX512RSQRT,AVX512RSQRT4I, est. max. performance"
+python3 csvplot_designspace.py single_node_designspace.csv 3,3,3,2 6,6,6,4 62,78,94,30 78,94,110,46 0 "Single Node FPGA Variants" "N" "Effective MPairs/s" "FPGA-2x2-DP@308.33MHz, FPGA-4x4-DP@262.50MHz, FPGA-8x8-SP@272.22MHz, CPU-40Core-DP"
+python3 csvplot_single_node.py single_node_combined.csv 2,3,2,3 4,6,7,10 0,23,0,23 23,41,23,41 0 "Single Node Performance and Efficiency" "N" "Effective MPairs/s" "CPU Performance, FPGA Performance, CPU Efficiency, FPGA Efficiency"
+python3 csvplot_strong.py strong_scaling.csv 0,0,0,0,0,0 2,2,4,6,4,2 0,15,5,20,10,30 5,20,10,25,15,35 0 "Strong Scaling" "\#Nodes" "Effective MPairs/s" "CPU N=3072, FPGA N=3072, CPU N=6144, FPGA N=6144, CPU N=18432, FPGA N=18432"
+python3 csvplot_weak.py weak_scaling.csv 0,0,0,0,0,0 4,6,4,6,6,9 0,10,5,15,5,10 5,15,10,20,10,15 0 "Weak Scaling" "\#Nodes" "Effective MPairs/s" "CPU N=1536  per Node, FPGA N=1536  per Node, CPU  N=32768 per Node, FPGA N=32768 per Node, CPU N=32768 per Node timestep duration, FPGA N=1536 per Node timestep duration"
+
+```
+The csvplot script synopsis is:
+```
+python3 csvplot.py input.csv [list of x-axis columns] [list of y-axis columns] [list of first rows] [list of last rows] ignored "Title" "x-Axis Label" "y-Axis Label" "List of legend entries"
+```
+The csv files themselves are stitched together from a mixture of CPU and FPGA results and older results, but all results should be reproducible using the CPU and FPGA scripts.
