@@ -498,7 +498,7 @@ int hybrid_scaling_benchmark(int argc, char** argv, size_t N, size_t time_steps,
         return EXIT_FAILURE;
     }
 
-    constexpr size_t avg_steps = 5;
+    constexpr size_t avg_steps = 3;
 
     if(rank == 0)
     {
@@ -537,8 +537,14 @@ int hybrid_scaling_benchmark(int argc, char** argv, size_t N, size_t time_steps,
         double num_pairs = double(time_steps) * double(scaled_N)*double(scaled_N-1);
         double mpairs = num_pairs/(1e6 * t_total);
 
-        printf("Ring Solver took %fs\n", t_total);
-        printf("MPairs/s: %f\n", mpairs);
+        for(size_t i = 0;i < avg_steps;i++)
+        {
+            printf("Ring Solver execution %lu took %fs\n", i, avg_timing[i]);
+            printf("Execution %lu MPairs/s: %f\n", i, num_pairs/(1e6 * avg_timing[i]));
+        }
+
+        printf("Median Ring Solver Execution took %fs\n", t_total);
+        printf("Median MPairs/s: %f\n", mpairs);
 
         //The hybrid solver can not change the number of ranks dynamically from within the program
         //Therefore, the program is called multiple times from a job script
@@ -546,7 +552,7 @@ int hybrid_scaling_benchmark(int argc, char** argv, size_t N, size_t time_steps,
         bool file_exists = (access(output_path.c_str(), F_OK) != -1);
         if(file_exists)
         {
-            FILE* output_file = fopen(output_path.c_str(), "r");
+            /*FILE* output_file = fopen(output_path.c_str(), "r");
             if(output_file == NULL)
             {
                 perror("Failed to open output file for reading: ");
@@ -592,12 +598,13 @@ int hybrid_scaling_benchmark(int argc, char** argv, size_t N, size_t time_steps,
             }
             fclose(output_file);
           
-            if(baseline_N != N)
-            {
-                printf("N = %zu does not match the baseline N = %zu! Results would not be meaningful.\n", N, baseline_N);
-                MPI_Finalize();
-                return EXIT_FAILURE;
-            }
+            //if(baseline_N != N)
+            //{
+            //    printf("N = %zu does not match the baseline N = %zu! Results would not be meaningful.\n", N, baseline_N);
+            //    MPI_Finalize();
+            //    return EXIT_FAILURE;
+            //}
+            
 
             double speedup = 1.0;
             if(weak)
@@ -610,19 +617,8 @@ int hybrid_scaling_benchmark(int argc, char** argv, size_t N, size_t time_steps,
                 printf("Using %fs as the baseline execution time\n", baseline_t_total);
                 speedup = baseline_t_total/t_total;
             }
+            */
             
-            output_file = fopen(output_path.c_str(), "a");
-            if(output_file == NULL)
-            {
-                perror("Failed to open output file for appending: ");
-                MPI_Finalize();
-                return EXIT_FAILURE;
-            }
-            fprintf(output_file, "%zu,%zu,%f,%f,%f\n", comm_sz*num_threads, scaled_N, t_total, mpairs, speedup);
-            fclose(output_file);
-        }
-        else
-        {
             FILE* output_file = fopen(output_path.c_str(), "a");
             if(output_file == NULL)
             {
@@ -630,9 +626,20 @@ int hybrid_scaling_benchmark(int argc, char** argv, size_t N, size_t time_steps,
                 MPI_Finalize();
                 return EXIT_FAILURE;
             }
-            fprintf(output_file, "#Cores, N, t_total[s], performance[Mpairs/s], speedup\n");       
-            double speedup = 1.0;
-            fprintf(output_file, "%zu,%zu,%f,%f,%f\n", comm_sz*num_threads, scaled_N, t_total, mpairs, speedup);
+            fprintf(output_file, "%zu,%zu,%zu,%f,%f,%f,%f\n", comm_sz/2, comm_sz*num_threads, scaled_N, t_total, mpairs, time_steps/t_total, t_total*1000.0/time_steps);
+            fclose(output_file);
+        }
+        else
+        {
+            FILE* output_file = fopen(output_path.c_str(), "w");
+            if(output_file == NULL)
+            {
+                perror("Failed to open output file for writing: ");
+                MPI_Finalize();
+                return EXIT_FAILURE;
+            }
+            fprintf(output_file, "#Nodes, Cores, N, t_total[s], performance[Mpairs/s], time_steps/s, ms/time_step\n");       
+            fprintf(output_file, "%zu,%zu,%zu,%f,%f,%f,%f\n", comm_sz/2, comm_sz*num_threads, scaled_N, t_total, mpairs, time_steps/t_total, t_total*1000.0/time_steps);
             fclose(output_file);
         }
     }

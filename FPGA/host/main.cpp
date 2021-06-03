@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <algorithm>
 #include <vector>
+#include <unistd.h>
 //#include "write_particles.h"
 #include <mpi.h>
 #include "CL/opencl.h"
@@ -193,10 +194,11 @@ void get_arguments(int argc,
                    std::string& solver_type, 
                    int* order,
                    std::string& suffix,
-                   std::string& topology)
+                   std::string& topology,
+                   std::string& output_path)
 {
     int tmp_N = 2;
-    int tmp_time_steps = 1000;
+    int tmp_time_steps = 0;
 
 
     int tmp_start_N = 0;
@@ -214,6 +216,7 @@ void get_arguments(int argc,
     integration_kind.clear();
     topology = "ringN";
     solver_type = "full";
+    output_path = "performance.csv";
     *order = 1;
     *ratio = 1e6;
     suffix = "";
@@ -351,6 +354,14 @@ void get_arguments(int argc,
                 topology.insert(0,argv[++i]);
             }
         }
+        else if(strcmp(argv[i], "-o") == 0)
+        {
+            if(i+1 < argc)
+            {
+                output_path.clear();
+                output_path.insert(0,argv[++i]);
+            }
+        }
     }
 
     if(tmp_N <= 0 || 
@@ -372,7 +383,7 @@ void get_arguments(int argc,
     {
         printf("Failed to read Arguments!\nResetting to defaults\n");
         tmp_N = 2;
-        tmp_time_steps = 1000;
+        tmp_time_steps = 0;
         tmp_start_N = 0;
         tmp_step_N = 0;
         tmp_num_steps = 0;
@@ -450,7 +461,8 @@ int main(int argc, char** argv)
     int order;
     std::string suffix;
     std::string topology;
-    get_arguments(argc, argv, &N, &start_N, &step_N, &num_steps, &warm_up, &time_steps, &T, &f_max, &CU, &local_PE_dim, &remote_PE_dim, &ratio, &verbose, &debug, integration_kind, solver_type, &order, suffix, topology);
+    std::string output_path;
+    get_arguments(argc, argv, &N, &start_N, &step_N, &num_steps, &warm_up, &time_steps, &T, &f_max, &CU, &local_PE_dim, &remote_PE_dim, &ratio, &verbose, &debug, integration_kind, solver_type, &order, suffix, topology, output_path);
 
     Execution_data exec_data(rank, comm_sz, CU, local_PE_dim, remote_PE_dim, integration_kind, order, solver_type, debug, suffix);
     exec_data.init(); 
@@ -460,15 +472,6 @@ int main(int argc, char** argv)
         printf("CU, local_PE_dim, remote_PE_dim or f_max not specified!\n");
         return -1;
     }
-
-
-    
-
-    //omega: Used for initializing orbiting particles
-    //delta_t: time_step
-    double R = 1.0;
-    double omega = (2.0 * M_PI)/T;
-    double delta_t = T/time_steps;
 
     cl_double* mass;
     cl_double* coeff;
@@ -480,55 +483,103 @@ int main(int argc, char** argv)
     
     while(N % (comm_sz*exec_data.num_devices) != 0)N++;
 
-    FILE* pFile = NULL;
+    FILE* output_file = NULL;
     if(num_steps == 0 || step_N == 0 || start_N == 0)
     {
-        printf("Too few Arguments for linear benchmark\n Using N = %lu once\n", N);
+        
         start_N = N;
         step_N = 0;
         num_steps = 1;
-        pFile = NULL;
+        
     }
-    else
+
+    if(rank == 0)
     {
-        if(rank == 0)
+        bool file_exists = (access(output_path.c_str(), F_OK) != -1);
+        if(file_exists)
         {
-            pFile = fopen("single_performance.csv","w");
-            fprintf(pFile, "N, t_exec[s], P[Mpairs/s], Efficiency, Power[W], Energy Efficiency[Mpairs/s/W]\n");
+            output_file = fopen(output_path.c_str(), "a");
+        }
+        else
+        {
+            output_file = fopen(output_path.c_str(),"w");
+            fprintf(output_file, "Nodes, dim, f_max, N, s, t_exec[s], P[Mpairs/s], Efficiency, time_steps/s, ms/time_step, Power[W], Energy Efficiency[Mpairs/s/W]\n");
         }
     }
 
     for(size_t n = 0;n < num_steps;n++)
     {
         size_t curr_N = start_N + n * step_N;
+        size_t curr_time_steps = 0;
         size_t K = exec_data.comm_sz * exec_data.num_devices;
         double T_pred;
         double mpairs_max;
+        double mpairs_pred;
         printf("curr_N: %d\n", curr_N);
         printf("#Warmup rounds: %lu\n", warm_up);
         printf("K : %d\n", comm_sz * K);
         if(exec_data.solver_type.find("lrb") != std::string::npos)
         {
             mpairs_max = double(K * 4 * local_PE_dim * remote_PE_dim) * f_max;
-            T_pred = double(time_steps)*double(curr_N)*double(curr_N)/(mpairs_max*1e6); //TODO
+            if(curr_N < 4 * K * local_PE_dim * 2 * 16)
+            {
+                mpairs_pred = (mpairs_max * curr_N)/(4 * K * local_PE_dim * 2 * 16);
+            }
+            else 
+            {
+                mpairs_pred = mpairs_max;
+            }
+            if(time_steps == 0)
+            {
+                int tmp = int(T * mpairs_pred *1e6 / (curr_N * curr_N));
+                if(tmp <= 0)
+                {
+                    printf("Requested Execution time T = %f would result in <= 0 timesteps. Setting timesteps to 1000\n", T);
+                    curr_time_steps = 1000;
+                }
+                else
+                {
+                    curr_time_steps = size_t(tmp);
+                    
+                }
+                
+                printf("Using timesteps = %d to achieve approx. T = %fs execution time\n", curr_time_steps, T);
+            }
+            else
+            {
+                curr_time_steps = time_steps;
+            }
+
+            T_pred = double(curr_time_steps)*double(curr_N)*double(curr_N)/(mpairs_pred*1e6); //TODO
             printf("local_PE_dim: %d\n", local_PE_dim);
             printf("remote_PE_dim: %d\n", remote_PE_dim);
         }
         else
         {
             T_pred = predict_time(N, time_steps, K, 512, CU, f_max);
+            mpairs_pred = double(curr_N)*double(curr_N)*double(curr_time_steps)/(1e6*T_pred);
+            curr_time_steps = time_steps;
             mpairs_max = double(K * CU) * f_max;
             printf("CU: %d\n", CU);
             printf("block_size: %d\n", 512);
         }
         
-        double mpairs_pred = double(curr_N)*double(curr_N)*double(time_steps)/(1e6*T_pred);
+        
         printf("f_max: %f\n", f_max);
         printf("Predicted Time: %f\n", T_pred);
         printf("Predicted mpairs/s: %f\n", mpairs_pred);
         printf("Max. mpairs/s: %f\n", mpairs_max);
         fflush(stdout);
+        
+        
+        
 
+        //omega: Used for initializing orbiting particles
+        //delta_t: time_step
+        double R = 1.0;
+        double omega = (2.0 * M_PI);
+        double delta_t = 1.0/curr_time_steps;
+        
         double exec_times[warm_up+1];
         double performances[warm_up+1];
         double power_consumption[warm_up+1];
@@ -553,16 +604,18 @@ int main(int argc, char** argv)
                 printf("Using solver : %s\n",exec_data.solver_type.c_str());
                 double exec_time = 0.0;
                 if(exec_data.solver_type == "lrb" && exec_data.suffix.find("_no_sync") != std::string::npos)
-                    exec_time = lrb_solver_no_sync(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, time_steps, delta_t, T_pred);
+                    exec_time = lrb_solver_no_sync(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, curr_time_steps, delta_t, T_pred);
                 else if(exec_data.solver_type == "lrbd" && exec_data.suffix.find("_no_sync") != std::string::npos)
-                    exec_time = lrbd_solver_no_sync(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, time_steps, delta_t, T_pred, topology, &power_consumption[w]);
+                    exec_time = lrbd_solver_no_sync(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, curr_time_steps, delta_t, T_pred, topology, &power_consumption[w]);
+                else if(exec_data.solver_type == "lrbd" && exec_data.suffix.find("_sp") != std::string::npos)
+                    exec_time = lrbd_solver_sp(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, curr_time_steps, delta_t, T_pred, topology, &power_consumption[w]);
                 else if(exec_data.solver_type == "lrb")
-                    exec_time = lrb_solver(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, time_steps, delta_t, T_pred);
+                    exec_time = lrb_solver(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, curr_time_steps, delta_t, T_pred);
                 else
-                    exec_time = solver(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, time_steps, delta_t, T_pred);
+                    exec_time = solver(&exec_data, scalar_factor, mass, coeff, pos, vel, force, curr_N, curr_time_steps, delta_t, T_pred);
 
-                double mpairs = double(exec_data.lf_steps-1)*double(time_steps)*double(curr_N)*double(curr_N)/(exec_time * 1e6);
-                double mpairs_pred = double(exec_data.lf_steps-1)*double(time_steps)*double(curr_N)*double(curr_N)/(T_pred * 1e6);
+                double mpairs = double(exec_data.lf_steps-1)*double(curr_time_steps)*double(curr_N)*double(curr_N)/(exec_time * 1e6);
+                double mpairs_pred = double(exec_data.lf_steps-1)*double(curr_time_steps)*double(curr_N)*double(curr_N)/(T_pred * 1e6);
                 printf("Solver took %fs\n", exec_time);
                 printf("Achieved mpairs/s: %f\n", mpairs);
                 exec_times[w] = exec_time;
@@ -581,23 +634,23 @@ int main(int argc, char** argv)
             {
                 double exec_time;
                 if(exec_data.solver_type == "lrb" && exec_data.suffix.find("_no_sync") != std::string::npos)
-                    exec_time = lrb_solver_no_sync(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, time_steps, delta_t, T_pred);
+                    exec_time = lrb_solver_no_sync(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, curr_time_steps, delta_t, T_pred);
                 else if(exec_data.solver_type == "lrbd" && exec_data.suffix.find("_no_sync") != std::string::npos)
-                    exec_time = lrbd_solver_no_sync(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, time_steps, delta_t, T_pred, topology, nullptr);
+                    exec_time = lrbd_solver_no_sync(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, curr_time_steps, delta_t, T_pred, topology, nullptr);
                 else if(exec_data.solver_type == "lrb")
-                    exec_time = lrb_solver(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, time_steps, delta_t, T_pred);
+                    exec_time = lrb_solver(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, curr_time_steps, delta_t, T_pred);
                 else
-                    exec_time = solver(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, time_steps, delta_t, T_pred);
+                    exec_time = solver(&exec_data, scalar_factor, nullptr, nullptr, nullptr, nullptr, nullptr, curr_N, curr_time_steps, delta_t, T_pred);
             }
         }
-        if(pFile != NULL && rank == 0)
+        if(output_file != NULL && rank == 0)
         {
             double last_exec_time = exec_times[warm_up];
             double last_mpairs = performances[warm_up];
             double last_power_consumption = power_consumption[warm_up];
             if(last_exec_time != 0.0)
             {
-                fprintf(pFile, "%d, %f, %f, %f, %f, %f\n",curr_N, last_exec_time, last_mpairs, last_mpairs/mpairs_max, last_power_consumption, last_mpairs/last_power_consumption);
+                fprintf(output_file, "%d, %dx%d, %f, %d, %d, %f, %f, %f, %f, %f, %f, %f\n", comm_sz, exec_data.local_PE_dim, exec_data.remote_PE_dim, f_max,curr_N, curr_time_steps, last_exec_time, last_mpairs, last_mpairs/mpairs_max, curr_time_steps/last_exec_time, last_exec_time*1000.0/curr_time_steps, last_power_consumption, last_mpairs/last_power_consumption);
             }
             else
             {
@@ -605,8 +658,8 @@ int main(int argc, char** argv)
             }
         }
     }
-    if(pFile != NULL)
-        fclose(pFile);
+    if(output_file != NULL)
+        fclose(output_file);
     MPI_Finalize();
     return 0;
 }

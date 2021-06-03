@@ -275,7 +275,7 @@ void Execution_data::create_command_queue()
 {
     cl_int status;
     // Create the command queue
-    if(solver_type.find("lrb") != std::string::npos && suffix.find("_no_sync") != std::string::npos)
+    if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos))
     { 
         for(size_t i = 0;i < this->num_devices;i++)
         {
@@ -378,7 +378,7 @@ void Execution_data::create_program()
                 binary_file[i] = std::string("bin/ring_") + solver_type_extension + std::string("_") + std::to_string(CU) + std::string("CU") + integration_kind_extension + suffix + std::string(".aocx");
         }
         
-        if(solver_type.find("lrb") != std::string::npos && suffix.find("_no_sync") != std::string::npos)
+        if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos))
         { 
             compute_kernel_name[i] = std::string("compute_forces");
             local_part_buffer_kernel_name[i] = std::string("local_particle_buffer");
@@ -454,7 +454,7 @@ void Execution_data::create_program()
         */ 
 
 
-        if(solver_type.find("lrb") != std::string::npos && suffix.find("_no_sync") != std::string::npos)
+        if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos))
         { 
             this->compute_kernel[i] = clCreateKernel(this->program[i], compute_kernel_name[i].c_str(), &status);
             checkError(status, this, "Failed to create ring kernel %d\n", i);

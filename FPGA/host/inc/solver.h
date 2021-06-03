@@ -49,4 +49,17 @@ double lrbd_solver_no_sync(Execution_data* exec_data,
             cl_double predicted_time,
             std::string topology,
             cl_double* power_consumption); 
+double lrbd_solver_sp(Execution_data* exec_data, 
+            cl_double K, 
+            cl_double* mass, 
+            cl_double* coeff, 
+            cl_double3* pos, 
+            cl_double3* vel, 
+            cl_double3* force, 
+            size_t N, 
+            size_t time_steps, 
+            cl_double delta_t, 
+            cl_double predicted_time,
+            std::string topology,
+            cl_double* power_consumption); 
 #endif
