@@ -13,7 +13,6 @@ profile.json
 
 ### OUTPUT ###
 *.txt
-*.csv
 
 ### C ###
 # Prerequisites
