@@ -29,14 +29,14 @@ The kernels follow a specific naming scheme, this scheme is different for emulat
         - ring_lrbd_lf_no_sync_local0.aocx (lrbd solver leap frog implementation, program number 0)
         - ring_lrbd_lf_no_sync_local1.aocx (lrbd solver leap frog implementation, program number 1)
 - full compilation and synthesis:
-    - ring\_**type**\_**LDIMxRDIM**\_**integration**\_**suffix**.aocx
+    - ring\_**type**\_**LDIMxRDIMPE**\_**integration**\_**suffix**.aocx
     - type: either **lrb** or **lrbd**
     - #LDIM: Number of PEs in local dimension
     - #RDIM: Number of PEs in remote dimension
     - integration: lf (leapfrog)
     - suffix: any additional information; should start with _
     - examples:
-        - ring_lrbd_4x4_lf_no_sync_local.aocx (lrbd solver with 4x4 FCU,)
+        - ring_lrbd_4x4PE_lf_no_sync_local.aocx (lrbd solver with 4x4 FCU,)
 
 #### Emulation of solvers
 Compile the programs for emulation using
