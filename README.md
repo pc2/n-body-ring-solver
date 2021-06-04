@@ -77,11 +77,10 @@ The plots are rendered by the following scripts invocations:
 ```
 cd final_results
 python3 csvplot_single_core.py single_core.csv 0,0,0,0,0,0,0,0 4,8,10,12,17,18,19,20 0,0,0,0,0,0,0,0 64,64,64,64,64,64,64,64 1 "Single Core Performance" "N" "Effective MPairs/s" "AVX2,AVX512,AVX512RSQRT,AVX512RSQRT4I, est. max. performance"
-python3 csvplot_designspace.py single_node_designspace.csv 3,3,3,2 6,6,6,4 62,78,94,30 78,94,110,46 0 "Single Node FPGA Variants" "N" "Effective MPairs/s" "FPGA-2x2-DP@308.33MHz, FPGA-4x4-DP@262.50MHz, FPGA-8x8-SP@272.22MHz, CPU-40Core-DP"
-python3 csvplot_single_node.py single_node_combined.csv 2,3,2,3 4,6,7,10 0,23,0,23 23,41,23,41 0 "Single Node Performance and Efficiency" "N" "Effective MPairs/s" "CPU Performance, FPGA Performance, CPU Efficiency, FPGA Efficiency"
-python3 csvplot_strong.py strong_scaling.csv 0,0,0,0,0,0 2,2,4,6,4,2 0,15,5,20,10,30 5,20,10,25,15,35 0 "Strong Scaling" "\#Nodes" "Effective MPairs/s" "CPU N=3072, FPGA N=3072, CPU N=6144, FPGA N=6144, CPU N=18432, FPGA N=18432"
-python3 csvplot_weak.py weak_scaling.csv 0,0,0,0,0,0 4,6,4,6,6,9 0,10,5,15,5,10 5,15,10,20,10,15 0 "Weak Scaling" "\#Nodes" "Effective MPairs/s" "CPU N=1536  per Node, FPGA N=1536  per Node, CPU  N=32768 per Node, FPGA N=32768 per Node, CPU N=32768 per Node timestep duration, FPGA N=1536 per Node timestep duration"
-
+python3 csvplot_single_node.py single_node_combined.csv 2,3,2,3 4,6,7,10 1,26,1,26 24,44,24,44 0 "Single Node Performance and Efficiency" "N" "Effective MPairs/s" "CPU Performance, FPGA Performance, CPU Efficiency, FPGA Efficiency"
+python3 csvplot_designspace.py single_node_designspace.csv 3,3,3,2 6,6,6,4 65,81,97,31 81,97,113,47 0 "Single Node FPGA Variants" "N" "Effective MPairs/s" "FPGA-2x2-DP@308.33MHz, FPGA-4x4-DP@262.50MHz, FPGA-8x8-SP@272.22MHz, CPU-40Core-DP"
+python3 csvplot_strong.py strong_scaling.csv 0,0,0,0,0,0 2,2,4,6,4,2 1,20,8,27,13,39 6,25,13,32,18,44 0 "Strong Scaling" "\#Nodes" "Effective MPairs/s" "CPU N=3072, FPGA N=3072, CPU N=6144, FPGA N=6144, CPU N=18432, FPGA N=18432"
+python3 csvplot_weak.py weak_scaling.csv 0,0,0,0,0,0 4,6,4,6,6,9 1,13,6,19,6,13 6,18,11,24,11,18 0 "Weak Scaling" "\#Nodes" "Effective MPairs/s" "CPU N=1536  per Node, FPGA N=1536  per Node, CPU  N=32768 per Node, FPGA N=32768 per Node, CPU N=32768 per Node timestep duration, FPGA N=1536 per Node timestep duration"
 ```
 The csvplot script synopsis is:
 ```
