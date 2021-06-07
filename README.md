@@ -1,6 +1,6 @@
 ## N-Body Ring Solver FPGA and CPU Implementations
 
-This repository contains the FPGA and CPU N-Body solver implementations presented in the **Scalability and Efficiency of N-Body Simulations on Multiple FPGAs** paper submitted to SC21. The benchmarks presented in the paper can be carried out by following the steps below on the [noctua](https://wikis.uni-paderborn.de/pc2doc/Noctua) cluster of [PC²](https://pc2.uni-paderborn.de/).  
+This repository contains the FPGA and CPU N-Body solver implementations presented in the **Scalability and Efficiency of N-Body Simulations on Multiple FPGAs** paper submitted to SC21. The benchmarks presented in the paper can be carried out by following the steps below on the [noctua](https://wikis.uni-paderborn.de/pc2doc/Noctua) cluster of [PC²](https://pc2.uni-paderborn.de/). For information on accessing the system, also refer to [this page](https://pc2.uni-paderborn.de/hpc-services/our-services/system-access-application).
 For further information on how to use the FPGA and CPU programs, refer to the Readme files in the corresponding directories.
 
 ### CPU Benchmarks
