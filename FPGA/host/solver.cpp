@@ -1157,14 +1157,17 @@ double lrbd_solver_no_sync(Execution_data* exec_data, cl_double K, cl_double* ma
     size_t padded_remote_N = num_remote_blocks * remote_block_size;
     printf("padded_local_N = %lu, padded_remote_N = %lu\n", padded_local_N, padded_remote_N);
 
+
     cl_double* local_mass = new cl_double[local_N];
     cl_double3* local_vel = new cl_double3[local_N];
     cl_double3* local_pos = new cl_double3[local_N];
     cl_double*  local_coeff = new double[local_N];
+
     particle_t* local_part = new particle_t[local_N];
     particle_t* remote_part = new particle_t[remote_N];
     cl_double3* local_force = new cl_double3[local_N];
     cl_double3* remote_force = new cl_double3[remote_N];
+
 
     typedef void* (*aocl_mmd_card_info_fn_t)(const char*, aocl_mmd_info_t, size_t, void*, size_t*);
     aocl_mmd_card_info_fn_t aocl_mmd_card_info_fn = NULL;
@@ -1188,7 +1191,7 @@ double lrbd_solver_no_sync(Execution_data* exec_data, cl_double K, cl_double* ma
     {
         printf ("Failed to get aocl_mmd_card_info_fn address\n");
     }
-
+    fflush(stdout);
     int fpga_comm_sz = exec_data->comm_sz * exec_data->num_devices;
     for(int dev = 0;dev < exec_data->num_devices; dev++)
     {
@@ -1513,7 +1516,8 @@ double lrbd_solver_no_sync(Execution_data* exec_data, cl_double K, cl_double* ma
         clGetEventProfilingInfo(timing_event[0], CL_PROFILING_COMMAND_END, sizeof(t_end), &t_end, NULL);
         double elapsed_time = double(t_end - t_start)*1e-9;
         exec_time = elapsed_time;
-        *power_consumption = average_power;
+        if(power_consumption != nullptr)
+            *power_consumption = average_power;
         printf("Power consumption for %d devices: %fs\n", fpga_comm_sz, average_power);
     }
 
@@ -1661,8 +1665,8 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
     aocl_mmd_card_info_fn_t aocl_mmd_card_info_fn = NULL;
     clGetBoardExtensionFunctionAddressIntelFPGA_fn clGetBoardExtensionFunctionAddressIntelFPGA = NULL;
     void *tempPointer = NULL;
-
-    if(!exec_data->is_emulation)
+    auto start = std::chrono::high_resolution_clock::now();
+    if(!exec_data->is_emulation && power_consumption != nullptr)
         clGetBoardExtensionFunctionAddressIntelFPGA = (clGetBoardExtensionFunctionAddressIntelFPGA_fn)clGetExtensionFunctionAddressForPlatform(exec_data->platform, "clGetBoardExtensionFunctionAddressIntelFPGA");
     if (clGetBoardExtensionFunctionAddressIntelFPGA == NULL)
     {
@@ -1670,7 +1674,7 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
     }
 
     tempPointer = NULL;
-    if(!exec_data->is_emulation)
+    if(!exec_data->is_emulation && power_consumption != nullptr)
     {
         tempPointer = clGetBoardExtensionFunctionAddressIntelFPGA("aocl_mmd_card_info",exec_data->device[0]);
         aocl_mmd_card_info_fn =   (aocl_mmd_card_info_fn_t)tempPointer;
@@ -1679,7 +1683,8 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
     {
         printf ("Failed to get aocl_mmd_card_info_fn address\n");
     }
-
+    auto end = std::chrono::high_resolution_clock::now();
+    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     int fpga_comm_sz = exec_data->comm_sz * exec_data->num_devices;
     for(int dev = 0;dev < exec_data->num_devices; dev++)
     {
@@ -1695,6 +1700,7 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
             fpga_rank = exec_data->num_devices * exec_data->rank + dev;
         else
             checkError(CL_INVALID_VALUE,exec_data, "topology not recognised, use either ringN, ringO or ringZ");
+        start = std::chrono::high_resolution_clock::now();
         MPI_Scatter(&pos[dev*local_N*exec_data->comm_sz], sizeof(cl_double3)/sizeof(double)*local_N, MPI_DOUBLE, local_pos, sizeof(cl_double3)/sizeof(double)*local_N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Scatter(&vel[dev*local_N*exec_data->comm_sz], sizeof(cl_double3)/sizeof(double)*local_N, MPI_DOUBLE, local_vel, sizeof(cl_double3)/sizeof(double)*local_N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Scatter(&mass[dev*local_N*exec_data->comm_sz], local_N, MPI_DOUBLE, local_mass, local_N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -1763,7 +1769,9 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         checkError(status, exec_data, "Failed to write to c coefficients Memory Buffer");
         status = clEnqueueWriteBuffer(exec_data->compute_queue[dev], lf_d_mem[dev], CL_TRUE, 0, (exec_data->lf_steps-1)*sizeof(cl_float), d_sp, 0, NULL, NULL);
         checkError(status, exec_data, "Failed to write to d coefficients Memory Buffer");
-        
+        end = std::chrono::high_resolution_clock::now();
+        if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
+        start = std::chrono::high_resolution_clock::now();
         //Compute Kernel Arguments
         cl_uint arg_index = 0;
         if(exec_data->debug)printf("Setting compute Kernel Arguments for device %d\n", dev);
@@ -1907,6 +1915,8 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
             printf("time_steps: %d\n", time_steps);
             fflush(stdout);
         }
+        end = std::chrono::high_resolution_clock::now();
+        if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     }
     for(size_t i = 0;i < exec_data->num_devices;i++)
     {
@@ -1919,13 +1929,12 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         printf("Sucessfully set Arguments\n");
         fflush(stdout);
     }
-
+    start = std::chrono::high_resolution_clock::now();
     MPI_Barrier(MPI_COMM_WORLD);
     if(exec_data->rank == 0)printf("-------- Ring Solver --------\n");
     if(exec_data->rank == 0)printf("N = %d, time_steps = %d\n", N, time_steps);
     if(exec_data->rank == 0)fflush(stdout);
     MPI_Barrier(MPI_COMM_WORLD);
-    auto start = std::chrono::high_resolution_clock::now();
     cl_event timing_event[exec_data->num_devices];
     for(size_t i = 0;i < exec_data->num_devices;i++)
     {
@@ -1953,7 +1962,8 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
 
     float average_power = 0.0f;
     size_t num_power_evaluations = 0;
-    auto end = std::chrono::high_resolution_clock::now();
+    end = std::chrono::high_resolution_clock::now();
+    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     if(!exec_data->is_emulation)
     {
         while(std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count() < predicted_time - 2.0)
@@ -1976,7 +1986,7 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         else
             average_power = -1.0;
     }
-
+    start = std::chrono::high_resolution_clock::now();
     for(size_t i = 0;i < exec_data->num_devices;i++)
     {
         clWaitForEvents(1, &timing_event[i]);
@@ -1996,8 +2006,9 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         status = clFinish(exec_data->integrator_queue[i]);
         checkError(status, exec_data, "Failed to finish integrator kernel");
     }
-    
-
+    end = std::chrono::high_resolution_clock::now();
+    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
+    start = std::chrono::high_resolution_clock::now();
     if(exec_data->debug)printf("Sucessfully completed Tasks\n");
     fflush(stdout);
     float gather_power[exec_data->comm_sz];
@@ -2014,10 +2025,13 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         clGetEventProfilingInfo(timing_event[0], CL_PROFILING_COMMAND_END, sizeof(t_end), &t_end, NULL);
         double elapsed_time = double(t_end - t_start)*1e-9;
         exec_time = elapsed_time;
-        *power_consumption = average_power;
+        if(power_consumption != nullptr)
+            *power_consumption = average_power;
         printf("Power consumption for %d devices: %fs\n", fpga_comm_sz, average_power);
     }
-
+    end = std::chrono::high_resolution_clock::now();
+    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
+    start = std::chrono::high_resolution_clock::now();
     for(int dev = 0; dev < exec_data->num_devices;dev++)
     {
         if(exec_data->debug)printf("Reading memory back from device %d\n", dev);
@@ -2094,7 +2108,8 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         clReleaseMemObject(lf_d_mem[dev]);
         fflush(stdout);
     }
-
+    end = std::chrono::high_resolution_clock::now();
+    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     delete[] local_coeff;
     delete[] local_mass;
     delete[] local_pos;

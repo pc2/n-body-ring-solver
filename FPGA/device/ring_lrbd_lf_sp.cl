@@ -1,6 +1,7 @@
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 
 #define ZERO 0.f
+#define EPS2 1e-6
 
 //Struct with valid bit lead to a bad access pattern for b_remote_particles, also 512b were used
 //Use compact float4 instead: xyz are the position, w the coefficient, if w == 0.0 the particle is invalid
@@ -148,7 +149,7 @@ force_t compute_pair(
 {
     //printf("Computing pair: local = [%f,%f,%f,%f], remote = [%f,%f,%f,%f]\n", local_particle.x, local_particle.y, local_particle.z, local_particle.w,remote_particle.x, remote_particle.y, remote_particle.z, remote_particle.w);
     float3 diff = remote_particle.xyz - local_particle.xyz;
-    float dist = rsqrt(diff.x * diff.x + diff.y * diff.y + diff.z*diff.z);
+    float dist = rsqrt(diff.x * diff.x + diff.y * diff.y + diff.z*diff.z + EPS2);
     float3 result = local_particle.w * remote_particle.w * (dist*dist*dist) * diff;
     return (local_particle.w != 0.0 && remote_particle.w != 0.0 && !eq_cond) ? result : ZERO;
 }
@@ -827,34 +828,41 @@ __kernel void integrator(
     //Do first position step s_0^1 <- s_0 + v_0 * c_0 * delta_t
     for(uint l = 0;l < local_N;l++)
     {
-        float3 vel = g_local_vel[l];
-        local_vel[l] = vel;
-        particle_t old_part = g_local_part[l];
-        float3 new_pos = old_part.xyz + vel * delta_t * c[0];
-        particle_t new_part = (float4)(new_pos, old_part.w);
-        local_part[l] = new_part;
+        //float3 vel = g_local_vel[l];
+        local_vel[l] = g_local_vel[l];//vel;
+        //particle_t old_part = g_local_part[l];
+        //float3 new_pos = old_part.xyz + vel * delta_t * c[0];
+        //particle_t new_part = (float4)(new_pos, old_part.w);
+        local_part[l] = g_local_part[l];//new_part;
         local_mass[l] = g_local_mass[l];
-        write_channel_intel(chan_integrator_to_local_particle_buffer, new_part);
-        write_channel_intel(chan_integrator_to_remote_particle_buffer, new_part);
+        //write_channel_intel(chan_integrator_to_local_particle_buffer, new_part);
+        //write_channel_intel(chan_integrator_to_remote_particle_buffer, new_part);
     }
     printf("Written out all particles for first timestep\n");
 
     uint s = 0;
-    uint lf_step = 0;
+    uint lf_step = lf_steps - 2;
     #pragma disable_loop_pipelining
-    for(uint sf=0; sf<steps * (lf_steps-1); sf++)
+    for(uint sf=0; sf<steps * (lf_steps-1) + 1; sf++)
     {
         //Merge the last lf position step of a timestep with the first lf position step of the next timestep,
         //except for the last timestep where only the last lf position step ist needed
-        float curr_c = lf_step < lf_steps - 2 ? c[lf_step + 1] : (s < steps - 1 ? c[lf_steps - 1] + c[0] : c[lf_steps-1]);
-        float curr_d = d[lf_step];
-        //printf("s = %u, lf_step = %u, Using curr_c = %f, curr_d = %f\n", s, lf_step, curr_c, curr_d);
+        //float curr_c = lf_step < lf_steps - 2 ? c[lf_step + 1] : (s < steps - 1 ? c[lf_steps - 1] + c[0] : c[lf_steps-1]);
+        //float curr_d = d[lf_step];
+
+        float curr_c = sf == 0 ? c[0]                          //very first position update
+                    : (lf_step < lf_steps - 2 ? c[lf_step + 1]  //position coefficients are offset by one as there lf_step position coefficients and lf_step-1 velocity coefficients
+                    : (s < steps - 1 ? c[lf_steps - 1] + c[0]   //Merge lf position step between two timesteps
+                    : c[lf_steps-1]));                          //Last timestep requires no overlap
+        float curr_d = sf == 0 ? 0.0 : d[lf_step];
+        printf("sf = %u, s = %u, lf_step = %u, Using curr_c = %f, curr_d = %f\n", sf, s, lf_step, curr_c, curr_d);
         
         for(uint l=0; l<local_N; l++)
         {
-            force_t local_force = read_channel_intel(chan_local_force_cache_to_integrator);
-            force_t remote_force = read_channel_intel(chan_remote_force_comm_to_integrator);
+            force_t local_force = sf != 0 ? read_channel_intel(chan_local_force_cache_to_integrator) : ZERO;
+            force_t remote_force = sf != 0 ? read_channel_intel(chan_remote_force_comm_to_integrator) : ZERO;
             force_t total_force = local_force - remote_force;
+            //printf("local mass[%u] = %f\n",l, local_mass[l]);
             //printf("Pre-update velocity[%u] = [%f,%f,%f]\n", l, local_vel[l].x,local_vel[l].y,local_vel[l].z);
             
             
@@ -872,7 +880,7 @@ __kernel void integrator(
             //printf("Received new remote_force[%u] = [%f,%f,%f]\n", l, remote_force.x, remote_force.y, remote_force.z);
             //printf("Received new total_force[%u]  = [%f,%f,%f]\n\n", l, total_force.x, total_force.y, total_force.z);
             //Buffer enough positions to start next timestep
-            if(s < steps - 1 || lf_step < lf_steps - 2)
+            if( sf < steps * (lf_steps-1) )
             {
                 write_channel_intel(chan_integrator_to_local_particle_buffer, new_part);
                 write_channel_intel(chan_integrator_to_remote_particle_buffer, new_part);
@@ -886,7 +894,7 @@ __kernel void integrator(
         if(lf_step == lf_steps - 1)
         {
             lf_step = 0;
-            s++;
+            if(sf != 0)s++;
         }
     }
     for(uint l = 0;l < local_N;l++)

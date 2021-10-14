@@ -26,9 +26,25 @@ Execution_data::Execution_data(int rank,
     debug(debug),
     suffix(suffix)
 {
+
+    cl_int status; 
+    const char* env_emulation = std::getenv("CL_CONFIG_CPU_EMULATE_DEVICES");
+    if(env_emulation != nullptr)
+    {
+        platform_name =  "Intel(R) FPGA Emulation Platform for OpenCL(TM)";
+        is_emulation = true;
+    }
+    else
+    {
+        platform_name = "Intel(R) FPGA SDK for OpenCL(TM)";
+        is_emulation = false;
+    }
+
     printf("solver_type: %s\n",solver_type.c_str());
     if(solver_type == "lrb")
         num_devices = 1;
+    else if(solver_type == "lrbd" && is_emulation)
+        num_devices = 4;
     else
         num_devices = 2;
     
@@ -171,23 +187,11 @@ void Execution_data::delete_execution_data()
 
 void Execution_data::find_platform()
 {
-    cl_int status; 
-    const char* env_emulation = std::getenv("CL_CONFIG_CPU_EMULATE_DEVICES");
-    if(env_emulation != nullptr)
-    {
-        platform_name =  "Intel(R) FPGA Emulation Platform for OpenCL(TM)";
-        is_emulation = true;
-    }
-    else
-    {
-        platform_name = "Intel(R) FPGA SDK for OpenCL(TM)";
-        is_emulation = false;
-    }
     std::transform(platform_name.begin(), platform_name.end(), platform_name.begin(), tolower);
 
     // Get number of platforms.
     cl_uint num_platforms;
-    status = clGetPlatformIDs(0, NULL, &num_platforms);
+    cl_int status = clGetPlatformIDs(0, NULL, &num_platforms);
     checkError(status, this, "Query for number of platforms failed");
 
     // Get a list of all platform ids.
@@ -275,7 +279,7 @@ void Execution_data::create_command_queue()
 {
     cl_int status;
     // Create the command queue
-    if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos))
+    if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos || suffix.find("_hybrid") != std::string::npos))
     { 
         for(size_t i = 0;i < this->num_devices;i++)
         {
@@ -378,7 +382,7 @@ void Execution_data::create_program()
                 binary_file[i] = std::string("bin/ring_") + solver_type_extension + std::string("_") + std::to_string(CU) + std::string("CU") + integration_kind_extension + suffix + std::string(".aocx");
         }
         
-        if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos))
+        if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos || suffix.find("_hybrid") != std::string::npos))
         { 
             compute_kernel_name[i] = std::string("compute_forces");
             local_part_buffer_kernel_name[i] = std::string("local_particle_buffer");
@@ -454,7 +458,7 @@ void Execution_data::create_program()
         */ 
 
 
-        if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos))
+        if(solver_type.find("lrb") != std::string::npos && (suffix.find("_no_sync") != std::string::npos || suffix.find("_sp") != std::string::npos || suffix.find("_hybrid") != std::string::npos))
         { 
             this->compute_kernel[i] = clCreateKernel(this->program[i], compute_kernel_name[i].c_str(), &status);
             checkError(status, this, "Failed to create ring kernel %d\n", i);
