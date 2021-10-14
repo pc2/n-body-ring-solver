@@ -23,7 +23,8 @@ void get_arguments(int argc,
                    Integration_kind& int_kind,
                    size_t& int_order,
                    Vectorization_type& vect_type,
-                   Solver_type& solver_type)
+                   Solver_type& solver_type,
+                   Data_type& data_type)
 {
     N = 1000;
     start_N = 1000;
@@ -38,6 +39,7 @@ void get_arguments(int argc,
     int_kind = Integration_kind::EULER;
     vect_type = Vectorization_type::AVX2;
     solver_type = Solver_type::REDUCED;
+    data_type = Data_type::DOUBLE_PRECISION;
     int_order = 1;
 
     std::map<std::string, Execution_type> convert_str_to_exec_type;
@@ -45,6 +47,7 @@ void get_arguments(int argc,
     convert_str_to_exec_type["omp-cache"] = Execution_type::OMP_CACHE;
     convert_str_to_exec_type["omp-weak"] = Execution_type::OMP_WEAK;
     convert_str_to_exec_type["omp-strong"] = Execution_type::OMP_STRONG;
+    convert_str_to_exec_type["omp-accuracy"] = Execution_type::OMP_ACCURACY;
     convert_str_to_exec_type["mpi-bandwidth"] = Execution_type::MPI_BANDWIDTH;
     convert_str_to_exec_type["hybrid"] = Execution_type::HYBRID;
     convert_str_to_exec_type["hybrid-weak"] = Execution_type::HYBRID_WEAK;
@@ -65,6 +68,10 @@ void get_arguments(int argc,
     std::map<std::string, Solver_type> convert_str_to_solver_type;
     convert_str_to_solver_type["full"] = Solver_type::FULL;
     convert_str_to_solver_type["reduced"] = Solver_type::REDUCED;
+
+    std::map<std::string, Data_type> convert_str_to_data_type;
+    convert_str_to_data_type["dp"] = Data_type::DOUBLE_PRECISION;
+    convert_str_to_data_type["sp"] = Data_type::SINGLE_PRECISION;
     
     for(int i = 1; i<argc; i++)
     {
@@ -188,6 +195,21 @@ void get_arguments(int argc,
 
             }
         }
+        else if(strcmp(argv[i], "-p") == 0) //precision
+        {
+            if(i+1 < argc)
+            {
+                std::string str_kind = std::string(argv[++i]);
+                if(convert_str_to_data_type.find(str_kind) == convert_str_to_data_type.end())
+                {
+                    printf("Unknown Data type: %s\n Defaulting to double precision\n", str_kind.c_str());
+                    data_type = Data_type::DOUBLE_PRECISION;
+                }
+                else
+                    data_type = convert_str_to_data_type[str_kind];
+
+            }
+        }
         else if(strcmp(argv[i], "-order") == 0)
         {
             if(i+1 < argc)
@@ -210,7 +232,7 @@ void get_arguments(int argc,
         printf("T has to be >= 0!\n Resetting to 1.0\n");
         T = 1.0;
     }
-    if(ratio <= 0.0)
+    if(ratio < 0.0)
     {
         printf("ratio has to be >= 0!\n Resetting to 1e6\n");
         ratio = 1e6;
@@ -238,7 +260,9 @@ int main(int argc, char** argv)
     
     Solver_type solver_type;
 
-    get_arguments(argc, argv, N, start_N, step_N, num_steps, time_steps, T, ratio, verbose, output_file, exec_type, int_kind, int_order,vect_type,solver_type);
+    Data_type data_type;
+
+    get_arguments(argc, argv, N, start_N, step_N, num_steps, time_steps, T, ratio, verbose, output_file, exec_type, int_kind, int_order,vect_type,solver_type, data_type);
     switch(exec_type)
     {
         case Execution_type::OMP:
@@ -252,6 +276,9 @@ int main(int argc, char** argv)
             break; 
         case Execution_type::OMP_STRONG:
             omp_scaling_benchmark(N, time_steps, T, ratio, false, output_file, vect_type, solver_type, verbose);
+            break;
+        case Execution_type::OMP_ACCURACY:
+            omp_accuracy(start_N, step_N, num_steps, T, ratio, output_file, vect_type, data_type, verbose);
             break;
         case Execution_type::HYBRID:
             hybrid_main(argc, argv, N, time_steps, T, ratio, vect_type, solver_type, verbose);

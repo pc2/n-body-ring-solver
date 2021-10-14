@@ -1,5 +1,6 @@
 #include "hybrid_solver.h"
 #include "omp_solver.h"
+#include "force_calculation.h"
 
 #include <stdio.h>
 #include <string.h>

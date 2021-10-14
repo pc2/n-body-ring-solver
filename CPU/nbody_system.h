@@ -2,6 +2,7 @@
 #define NBODY_SYSTEM_H
 
 #include <fstream>
+#include <array>
 #define DIM 3
 #define X 0
 #define Y 1
@@ -11,7 +12,7 @@ constexpr double G = 1;//6.6743e-11;
 
 enum class Execution_type
 {
-    OMP, OMP_CACHE, OMP_WEAK, OMP_STRONG,
+    OMP, OMP_CACHE, OMP_WEAK, OMP_STRONG, OMP_ACCURACY,
     MPI_BANDWIDTH,
     HYBRID, HYBRID_WEAK, HYBRID_STRONG
 };
@@ -31,6 +32,11 @@ enum class Solver_type
     FULL,REDUCED
 };
 
+enum class Data_type
+{
+    SINGLE_PRECISION, DOUBLE_PRECISION
+};
+
 
 struct NBody_system
 {
@@ -40,6 +46,12 @@ struct NBody_system
     double *pos[DIM] = {nullptr, nullptr, nullptr};
     double *vel[DIM] = {nullptr, nullptr, nullptr};
     double *force[DIM] = {nullptr, nullptr, nullptr};
+
+    float* mass_sp = nullptr;
+    float *pos_sp[DIM] = {nullptr, nullptr, nullptr};
+    float *vel_sp[DIM] = {nullptr, nullptr, nullptr};
+    float *force_sp[DIM] = {nullptr, nullptr, nullptr};
+
     std::ofstream output_file;
 
     NBody_system();
@@ -54,6 +66,8 @@ struct NBody_system
     void init_particles(size_t N);
     void init_orbiting_particles(size_t N, double R, double omega);
     void init_stable_orbiting_particles(size_t N, double R, double omega, double ratio);
+    void predict_stable_orbiting_particles(double R, double omega, size_t curr_time_steps, size_t time_steps);
+    void apply_permutation(size_t* permutation);
 
     static constexpr double G = 1;//6.6743e-11;
 };
@@ -64,4 +78,6 @@ void print_particles_contiguous(double* mass, double *pos[DIM], double *vel[DIM]
 void print_particles_sync(double* mass, double *pos[DIM], double *vel[DIM], double *force[DIM], size_t N, bool contiguous);
     
 void print_deviation(double *calc[DIM], double *ref[DIM], const char* data_kind, size_t N, bool verbose=false);
+double calculate_deviation(double *calc[DIM], double *ref[DIM], size_t N);
+std::array<double,6> calculate_force_error(const NBody_system& sys, const NBody_system& ref, Data_type data_type, bool verbose=false);
 #endif
