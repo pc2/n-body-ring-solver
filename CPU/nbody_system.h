@@ -12,7 +12,7 @@ constexpr double G = 1;//6.6743e-11;
 
 enum class Execution_type
 {
-    OMP, OMP_CACHE, OMP_WEAK, OMP_STRONG, OMP_ACCURACY,
+    OMP, OMP_CACHE, OMP_WEAK, OMP_STRONG, OMP_ACCURACY, OMP_RATIO,
     MPI_BANDWIDTH,
     HYBRID, HYBRID_WEAK, HYBRID_STRONG
 };
@@ -66,7 +66,8 @@ struct NBody_system
     void init_particles(size_t N);
     void init_orbiting_particles(size_t N, double R, double omega);
     void init_stable_orbiting_particles(size_t N, double R, double omega, double ratio);
-    void predict_stable_orbiting_particles(double R, double omega, size_t curr_time_steps, size_t time_steps);
+    void copy_to_double_precision();
+    void predict_stable_orbiting_particles(double R, double omega, size_t curr_time_steps, size_t time_steps_per_rev);
     void apply_permutation(size_t* permutation);
 
     static constexpr double G = 1;//6.6743e-11;
@@ -78,6 +79,6 @@ void print_particles_contiguous(double* mass, double *pos[DIM], double *vel[DIM]
 void print_particles_sync(double* mass, double *pos[DIM], double *vel[DIM], double *force[DIM], size_t N, bool contiguous);
     
 void print_deviation(double *calc[DIM], double *ref[DIM], const char* data_kind, size_t N, bool verbose=false);
-double calculate_deviation(double *calc[DIM], double *ref[DIM], size_t N);
+std::array<double,2> calculate_deviation(double *calc[DIM], double *ref[DIM], size_t N);
 std::array<double,6> calculate_force_error(const NBody_system& sys, const NBody_system& ref, Data_type data_type, bool verbose=false);
 #endif

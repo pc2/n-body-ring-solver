@@ -304,7 +304,7 @@ void NBody_system::predict_stable_orbiting_particles(double R, double omega, siz
     size_t N = this->N-1;
 
     double time_offset = (double(curr_time_step)/double(total_time_steps));
-    for(int i = 0;i < N; i++)
+    for(size_t i = 0;i < N; i++)
     {
         double theta = (double(i)/double(N) + time_offset) * 2 * M_PI;
         pos[X][i] =  R * std::cos(theta);
@@ -321,6 +321,23 @@ void NBody_system::predict_stable_orbiting_particles(double R, double omega, siz
     vel[X][N] = 0.0; 
     vel[Y][N] = 0.0; 
     vel[Z][N] = 0.0;
+}
+
+void NBody_system::copy_to_double_precision()
+{
+    for(size_t i = 0;i < this->N; i++)
+    {
+        pos[X][i] = double(pos_sp[X][i]);
+        pos[Y][i] = double(pos_sp[Y][i]);
+        pos[Z][i] = double(pos_sp[Z][i]);
+        vel[X][i] = double(vel_sp[X][i]);
+        vel[Y][i] = double(vel_sp[Y][i]);
+        vel[Z][i] = double(vel_sp[Z][i]);
+        force[X][i] = double(force_sp[X][i]);
+        force[Y][i] = double(force_sp[Y][i]);
+        force[Z][i] = double(force_sp[Z][i]);
+        mass[i] = double(mass_sp[i]);
+    }
 }
 
 template<typename T>
@@ -417,19 +434,25 @@ void print_deviation(double *calc[DIM], double *ref[DIM], const char* data_kind,
         printf("Average %s deviation from reference: %.13f\n", data_kind, diff_mean);
 }
 
-double calculate_deviation(double *calc[DIM], double *ref[DIM], size_t N)
+std::array<double,2> calculate_deviation(double *calc[DIM], double *ref[DIM], size_t N)
 {
-    double diff_mean = 0.0;
+    double dist_mean = 0.0;
+    double max_len_error = 0.0;
     for(size_t i = 0; i < N; i++)
     {
         double diff[DIM];
         diff[X] = calc[X][i] - ref[X][i];
         diff[Y] = calc[Y][i] - ref[Y][i];
         diff[Z] = calc[Z][i] - ref[Z][i];
-        diff_mean += std::sqrt(diff[X]*diff[X] + diff[Y]*diff[Y] + diff[Z]*diff[Z]);
+        dist_mean += std::sqrt(diff[X]*diff[X] + diff[Y]*diff[Y] + diff[Z]*diff[Z]);
+
+        double len_calc = std::sqrt(calc[X][i]*calc[X][i] + calc[Y][i]*calc[Y][i] + calc[Z][i]*calc[Z][i]);
+        double len_ref = std::sqrt(ref[X][i]*ref[X][i] + ref[Y][i]*ref[Y][i] + ref[Z][i]*ref[Z][i]);
+        if(max_len_error < abs(len_calc - len_ref)/len_ref && len_ref > 0.0)
+            max_len_error = abs(len_calc - len_ref)/len_ref;
     }
-    diff_mean/=N;
-    return diff_mean;
+    dist_mean/=N;
+    return {dist_mean, max_len_error};
 }
 
 std::array<double, 6> calculate_force_error(const NBody_system& sys, const NBody_system& ref, Data_type data_type, bool verbose)
@@ -541,6 +564,5 @@ std::array<double, 6> calculate_force_error(const NBody_system& sys, const NBody
 
     }
     double ref_length = std::sqrt(ref.force_sp[X][0]*ref.force_sp[X][0] + ref.force_sp[Y][0]*ref.force_sp[Y][0] + ref.force_sp[Z][0]*ref.force_sp[Z][0]);
-    printf("ref_length = %f\n", ref_length);
     return {error/sys.N, largest_diff_length, angle_error/(2*M_PI*sys.N), length_error/(ref_length*sys.N), max_angle_error/(2*M_PI), max_length_error/ref_length};
 }

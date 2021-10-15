@@ -17,6 +17,11 @@ void get_arguments(int argc,
                    size_t& time_steps, 
                    double& T, 
                    double& ratio, 
+                   double& ratio_start,
+                   double& ratio_stop,
+                   size_t& ratio_steps,
+                   size_t& rev_steps,
+                   double& max_error,
                    bool& verbose, 
                    std::string& output_file, 
                    Execution_type& exec_type, 
@@ -33,6 +38,14 @@ void get_arguments(int argc,
     time_steps = 1000;
     T = 1.0;
     ratio = 100000.0;
+
+    ratio_start = 1e6;
+    ratio_stop = 1e9;
+    ratio_steps = 3;
+
+    rev_steps = 1000;
+    max_error = 1.0;
+
     verbose = false;
     output_file = std::string("output.csv"); 
     exec_type = Execution_type::OMP;
@@ -48,6 +61,7 @@ void get_arguments(int argc,
     convert_str_to_exec_type["omp-weak"] = Execution_type::OMP_WEAK;
     convert_str_to_exec_type["omp-strong"] = Execution_type::OMP_STRONG;
     convert_str_to_exec_type["omp-accuracy"] = Execution_type::OMP_ACCURACY;
+    convert_str_to_exec_type["omp-ratio"] = Execution_type::OMP_RATIO;
     convert_str_to_exec_type["mpi-bandwidth"] = Execution_type::MPI_BANDWIDTH;
     convert_str_to_exec_type["hybrid"] = Execution_type::HYBRID;
     convert_str_to_exec_type["hybrid-weak"] = Execution_type::HYBRID_WEAK;
@@ -101,6 +115,41 @@ void get_arguments(int argc,
             if(i+1 < argc)
             {
                 num_steps = strtoull(argv[++i], NULL, 10);
+            }
+        }
+        else if(strcmp(argv[i], "-ratio-start") == 0)
+        {
+            if(i+1 < argc)
+            {
+                ratio_start = atof(argv[++i]);
+            }
+        }
+        else if(strcmp(argv[i], "-ratio-stop") == 0)
+        {
+            if(i+1 < argc)
+            {
+                ratio_stop = atof(argv[++i]);
+            }
+        }
+        else if(strcmp(argv[i], "-ratio-steps") == 0)
+        {
+            if(i+1 < argc)
+            {
+                ratio_steps = strtoull(argv[++i], NULL, 10);
+            }
+        }
+        else if(strcmp(argv[i], "-rev-steps") == 0)
+        {
+            if(i+1 < argc)
+            {
+                rev_steps = strtoull(argv[++i], NULL, 10);
+            }
+        }
+        else if(strcmp(argv[i], "-max-error") == 0)
+        {
+            if(i+1 < argc)
+            {
+                max_error = atof(argv[++i]);
             }
         }
         else if(strcmp(argv[i], "-s") == 0)
@@ -248,6 +297,11 @@ int main(int argc, char** argv)
     size_t time_steps;
     double T;
     double ratio;
+    double ratio_start;
+    double ratio_stop;
+    size_t ratio_steps;
+    size_t rev_steps;
+    double max_error;
     bool verbose;
     std::string output_file;
     
@@ -262,7 +316,7 @@ int main(int argc, char** argv)
 
     Data_type data_type;
 
-    get_arguments(argc, argv, N, start_N, step_N, num_steps, time_steps, T, ratio, verbose, output_file, exec_type, int_kind, int_order,vect_type,solver_type, data_type);
+    get_arguments(argc, argv, N, start_N, step_N, num_steps, time_steps, T, ratio, ratio_start, ratio_stop, ratio_steps, rev_steps, max_error, verbose, output_file, exec_type, int_kind, int_order,vect_type,solver_type, data_type);
     switch(exec_type)
     {
         case Execution_type::OMP:
@@ -278,7 +332,10 @@ int main(int argc, char** argv)
             omp_scaling_benchmark(N, time_steps, T, ratio, false, output_file, vect_type, solver_type, verbose);
             break;
         case Execution_type::OMP_ACCURACY:
-            omp_accuracy(start_N, step_N, num_steps, T, ratio, output_file, vect_type, data_type, verbose);
+            omp_accuracy(start_N, step_N, num_steps, T, ratio_start, ratio_stop, ratio_steps, output_file, vect_type, data_type, verbose);
+            break;
+        case Execution_type::OMP_RATIO:
+            omp_ratio_accuracy(start_N, step_N, num_steps, time_steps, T, ratio_start, ratio_stop, ratio_steps, rev_steps, max_error, output_file, vect_type, data_type, verbose);
             break;
         case Execution_type::HYBRID:
             hybrid_main(argc, argv, N, time_steps, T, ratio, vect_type, solver_type, verbose);

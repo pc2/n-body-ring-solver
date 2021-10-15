@@ -254,7 +254,7 @@ void full_solver_omp(NBody_system& nb_sys, size_t time_steps, double delta_t, Ve
     free(sqrt_mask);
 }
 
-void reduced_solver_omp_lf(NBody_system& nb_sys, size_t time_steps, double delta_t, double* c, double* d, size_t lf_steps, bool blocked)
+void reduced_solver_omp_lf(NBody_system& nb_sys, size_t time_steps, double delta_t, double* c, double* d, size_t lf_steps, bool blocked, Data_type data_type)
 {
     size_t num_threads = omp_get_max_threads();
     printf("Threads available: %zu\n", num_threads);
@@ -267,20 +267,35 @@ void reduced_solver_omp_lf(NBody_system& nb_sys, size_t time_steps, double delta
     double*** local_recv_force = (double***)malloc(num_threads*sizeof(double**));
     double* recv_pos[DIM];
     double* recv_force[DIM];
+
+    float*** local_force_sp = (float***)malloc(num_threads*sizeof(float**));
+    float*** local_recv_force_sp = (float***)malloc(num_threads*sizeof(float**));
+    float* recv_pos_sp[DIM];
+    float* recv_force_sp[DIM];
+
     for(size_t d = 0;d < DIM;d++)
     {
         recv_pos[d] = (double*)aligned_alloc(64, sizeof(double) * nb_sys.N);
         recv_force[d] = (double*)aligned_alloc(64, sizeof(double) * nb_sys.N);
+
+        recv_pos_sp[d] = (float*)aligned_alloc(64, sizeof(float) * nb_sys.N);
+        recv_force_sp[d] = (float*)aligned_alloc(64, sizeof(float) * nb_sys.N);
     }
 
     for(size_t thread = 0; thread < num_threads;thread++)
     {
         local_force[thread] = (double**)malloc(DIM*sizeof(double*));
         local_recv_force[thread] = (double**)malloc(DIM*sizeof(double*));
+
+        local_force_sp[thread] = (float**)malloc(DIM*sizeof(float*));
+        local_recv_force_sp[thread] = (float**)malloc(DIM*sizeof(float*));
         for(size_t d = 0;d < DIM;d++)
         {
             local_force[thread][d] = (double*)aligned_alloc(64, sizeof(double) * nb_sys.N);
             local_recv_force[thread][d] = (double*)aligned_alloc(64, sizeof(double) * nb_sys.N);
+
+            local_force_sp[thread][d] = (float*)aligned_alloc(64, sizeof(float) * nb_sys.N);
+            local_recv_force_sp[thread][d] = (float*)aligned_alloc(64, sizeof(float) * nb_sys.N);
         }
     }
 
@@ -305,33 +320,81 @@ void reduced_solver_omp_lf(NBody_system& nb_sys, size_t time_steps, double delta
 #pragma omp parallel for simd
             for(size_t i = 0;i < nb_sys.N;i++)
             {
-                nb_sys.pos[X][i] += c[step]*nb_sys.vel[X][i]*delta_t;
-                nb_sys.pos[Y][i] += c[step]*nb_sys.vel[Y][i]*delta_t;
-                nb_sys.pos[Z][i] += c[step]*nb_sys.vel[Z][i]*delta_t;
+                if(data_type == Data_type::DOUBLE_PRECISION)
+                {
+                    nb_sys.pos[X][i] += c[step]*nb_sys.vel[X][i]*delta_t;
+                    nb_sys.pos[Y][i] += c[step]*nb_sys.vel[Y][i]*delta_t;
+                    nb_sys.pos[Z][i] += c[step]*nb_sys.vel[Z][i]*delta_t;
+                }
+                else
+                {
+                    nb_sys.pos_sp[X][i] += float(c[step])*nb_sys.vel_sp[X][i]*float(delta_t);
+                    nb_sys.pos_sp[Y][i] += float(c[step])*nb_sys.vel_sp[Y][i]*float(delta_t);
+                    nb_sys.pos_sp[Z][i] += float(c[step])*nb_sys.vel_sp[Z][i]*float(delta_t);
+                }
+
                 recv_pos[X][i] = nb_sys.pos[X][i];
                 recv_pos[Y][i] = nb_sys.pos[Y][i];
                 recv_pos[Z][i] = nb_sys.pos[Z][i];
+                recv_pos_sp[X][i] = nb_sys.pos_sp[X][i];
+                recv_pos_sp[Y][i] = nb_sys.pos_sp[Y][i];
+                recv_pos_sp[Z][i] = nb_sys.pos_sp[Z][i];
+
                 recv_force[X][i] = 0.0;
                 recv_force[Y][i] = 0.0;
                 recv_force[Z][i] = 0.0;
+                recv_force_sp[X][i] = 0.0f;
+                recv_force_sp[Y][i] = 0.0f;
+                recv_force_sp[Z][i] = 0.0f;
+
                 nb_sys.force[X][i] = 0.0;
                 nb_sys.force[Y][i] = 0.0;
                 nb_sys.force[Z][i] = 0.0;
+                nb_sys.force_sp[X][i] = 0.0f;
+                nb_sys.force_sp[Y][i] = 0.0f;
+                nb_sys.force_sp[Z][i] = 0.0f;
             }
             double end = omp_get_wtime();
             int_time += end - start;
             start = end;
-            if(blocked)compute_forces_avx2_blocked(nb_sys, recv_pos, recv_force, local_force, local_recv_force, nb_sys.N,0,1,0,num_threads);
-            else compute_forces_avx2(nb_sys, recv_pos, recv_force, local_force, local_recv_force, nb_sys.N,0,1,0,num_threads);
+            //if(blocked)compute_forces_avx2_blocked(nb_sys, recv_pos, recv_force, local_force, local_recv_force, nb_sys.N,0,1,0,num_threads);
+            //else compute_forces_avx2(nb_sys, recv_pos, recv_force, local_force, local_recv_force, nb_sys.N,0,1,0,num_threads);
+            if(data_type == Data_type::DOUBLE_PRECISION)
+            {
+                if(blocked)compute_forces_avx2_blocked(nb_sys, recv_pos, recv_force, local_force, local_recv_force, nb_sys.N,0,1,0,num_threads);
+                else compute_forces_avx2(nb_sys, recv_pos, recv_force, local_force, local_recv_force, nb_sys.N,0,1,0,num_threads);
+            }
+            else
+            {
+                if(blocked)compute_forces_avx2_blocked_sp(nb_sys, recv_pos_sp, recv_force_sp, local_force_sp, local_recv_force_sp, nb_sys.N,0,1,0,num_threads);
+                else compute_forces_avx2_sp(nb_sys, recv_pos_sp, recv_force_sp, local_force_sp, local_recv_force_sp, nb_sys.N,0,1,0,num_threads);
+            }
             end = omp_get_wtime();
             force_time += end - start;
             start = end;
 #pragma omp parallel for simd
             for(size_t i = 0;i < nb_sys.N;i++)
             {
-                nb_sys.vel[X][i] += (d[step] * (nb_sys.force[X][i]+recv_force[X][i]) * delta_t) / nb_sys.mass[i];
-                nb_sys.vel[Y][i] += (d[step] * (nb_sys.force[Y][i]+recv_force[Y][i]) * delta_t) / nb_sys.mass[i];
-                nb_sys.vel[Z][i] += (d[step] * (nb_sys.force[Z][i]+recv_force[Z][i]) * delta_t) / nb_sys.mass[i];
+                
+                if(data_type == Data_type::DOUBLE_PRECISION)
+                {
+                    nb_sys.force[X][i] += recv_force[X][i]; 
+                    nb_sys.force[Y][i] += recv_force[Y][i];
+                    nb_sys.force[Z][i] += recv_force[Z][i];
+
+                    nb_sys.vel[X][i] += (d[step] * nb_sys.force[X][i] * delta_t) / nb_sys.mass[i];
+                    nb_sys.vel[Y][i] += (d[step] * nb_sys.force[Y][i] * delta_t) / nb_sys.mass[i];
+                    nb_sys.vel[Z][i] += (d[step] * nb_sys.force[Z][i] * delta_t) / nb_sys.mass[i];
+                }
+                else
+                {
+                    nb_sys.force_sp[X][i] += recv_force_sp[X][i]; 
+                    nb_sys.force_sp[Y][i] += recv_force_sp[Y][i];
+                    nb_sys.force_sp[Z][i] += recv_force_sp[Z][i];
+                    nb_sys.vel_sp[X][i] += (float(d[step]) * (nb_sys.force_sp[X][i]) * float(delta_t)) / nb_sys.mass_sp[i];
+                    nb_sys.vel_sp[Y][i] += (float(d[step]) * (nb_sys.force_sp[Y][i]) * float(delta_t)) / nb_sys.mass_sp[i];
+                    nb_sys.vel_sp[Z][i] += (float(d[step]) * (nb_sys.force_sp[Z][i]) * float(delta_t)) / nb_sys.mass_sp[i];
+                }
             }
             end = omp_get_wtime();
             int_time += end - start;
@@ -342,9 +405,18 @@ void reduced_solver_omp_lf(NBody_system& nb_sys, size_t time_steps, double delta
 #pragma omp parallel for simd
         for(size_t i = 0;i < nb_sys.N;i++)
         {
-            nb_sys.pos[X][i] += c[lf_steps-1]*nb_sys.vel[X][i]*delta_t;
-            nb_sys.pos[Y][i] += c[lf_steps-1]*nb_sys.vel[Y][i]*delta_t;
-            nb_sys.pos[Z][i] += c[lf_steps-1]*nb_sys.vel[Z][i]*delta_t;
+            if(data_type == Data_type::DOUBLE_PRECISION)
+            {
+                nb_sys.pos[X][i] += c[lf_steps-1]*nb_sys.vel[X][i]*delta_t;
+                nb_sys.pos[Y][i] += c[lf_steps-1]*nb_sys.vel[Y][i]*delta_t;
+                nb_sys.pos[Z][i] += c[lf_steps-1]*nb_sys.vel[Z][i]*delta_t;
+            }
+            else
+            {
+                nb_sys.pos_sp[X][i] += float(c[lf_steps-1])*nb_sys.vel_sp[X][i]*float(delta_t);
+                nb_sys.pos_sp[Y][i] += float(c[lf_steps-1])*nb_sys.vel_sp[Y][i]*float(delta_t);
+                nb_sys.pos_sp[Z][i] += float(c[lf_steps-1])*nb_sys.vel_sp[Z][i]*float(delta_t);
+            }
         }
         double end = omp_get_wtime();
         int_time += end - start;
@@ -358,17 +430,29 @@ void reduced_solver_omp_lf(NBody_system& nb_sys, size_t time_steps, double delta
         {
             free(local_force[thread][d]); 
             free(local_recv_force[thread][d]); 
+
+            free(local_force_sp[thread][d]); 
+            free(local_recv_force_sp[thread][d]); 
         }
         free(local_force[thread]);
         free(local_recv_force[thread]);
+
+        free(local_force_sp[thread]);
+        free(local_recv_force_sp[thread]);
     }
     for(size_t d = 0;d < DIM;d++)
     {
         free(recv_force[d]);
         free(recv_pos[d]);
+
+        free(recv_force_sp[d]);
+        free(recv_pos_sp[d]);
     }
     free(local_force);
     free(local_recv_force);
+
+    free(local_force_sp);
+    free(local_recv_force_sp);
 }
 
 void reduced_solver_omp_rk(NBody_system& nb_sys, size_t time_steps, double delta_t, double* a, double* b, size_t rk_steps, bool blocked)
@@ -659,7 +743,7 @@ int omp_main(size_t N, size_t time_steps, double T, double ratio, Integration_ki
         size_t lf_steps = 2*w_size;
 
         double start = omp_get_wtime();
-        reduced_solver_omp_lf(sys, time_steps, delta_t, c, d, lf_steps, true);
+        reduced_solver_omp_lf(sys, time_steps, delta_t, c, d, lf_steps, true, Data_type::DOUBLE_PRECISION);
         double end = omp_get_wtime();
 
         size_t num_pairs = N*N - N;
@@ -812,7 +896,7 @@ int omp_scaling_benchmark(size_t N, size_t time_steps, double T, double ratio, b
     return 0;
 }
 
-int omp_accuracy(size_t start_N, size_t step_N, size_t num_steps, double T, double ratio, std::string output_path, Vectorization_type vect_type, Data_type data_type, bool verbose)
+int omp_accuracy(size_t start_N, size_t step_N, size_t num_steps, double T, double ratio_start, double ratio_stop, size_t ratio_steps, std::string output_path, Vectorization_type vect_type, Data_type data_type, bool verbose)
 {
     double R = 1.0;
     double omega = (2.0 * M_PI);
@@ -826,67 +910,89 @@ int omp_accuracy(size_t start_N, size_t step_N, size_t num_steps, double T, doub
     else
     {
         output_file = fopen(output_path.c_str(), "w");
-        fprintf(output_file, "N, precision, average_force_length_error[%%], average_force_angle_error[%%]\n");
+        fprintf(output_file, "N, precision, ratio, average_force_length_error[%%], average_force_angle_error[%%]\n");
     }
     
 
-    for(size_t i = 0;i < num_steps;i++)
+    double ratio_root = std::pow(ratio_stop/ratio_start, 1.0/double(ratio_steps));
+    printf("ratio_root: %f, ratio_start: %f\n", ratio_root, ratio_start);
+    for(size_t ratio_step = 0;ratio_step <= ratio_steps;ratio_step++)
     {
-        size_t curr_N = start_N * size_t(std::round(std::pow(double(step_N), i)));
-        NBody_system sys;
-        NBody_system ref;
+        double curr_ratio = ratio_start * std::pow(ratio_root, ratio_step);
+        for(size_t i = 0;i < num_steps;i++)
+        {
+            size_t curr_N = start_N * size_t(std::round(std::pow(double(step_N), i)));
+            NBody_system sys;
+            NBody_system ref;
 
-        sys.init_stable_orbiting_particles(curr_N, R, omega, ratio);
-        //sys.init_orbiting_particles(N, R, omega);
-        ref = sys;
+            sys.init_stable_orbiting_particles(curr_N, R, omega, curr_ratio);
+            //sys.init_orbiting_particles(N, R, omega);
+            ref = sys;
 
-        size_t* perm = new size_t[curr_N];
-        for(size_t i = 0;i < curr_N;i++)
-            perm[i] = i;
+            size_t* perm = new size_t[curr_N];
+            for(size_t i = 0;i < curr_N;i++)
+                perm[i] = i;
 
-        std::random_device rd;
-        std::mt19937 g(rd());
+            std::random_device rd;
+            std::mt19937 g(rd());
 
-        std::shuffle(&perm[0], &perm[curr_N], g);
+            std::shuffle(&perm[0], &perm[curr_N], g);
 
-        sys.apply_permutation(perm);
-        ref.apply_permutation(perm);
+            sys.apply_permutation(perm);
+            ref.apply_permutation(perm);
 
-        printf("N = %zu, s = %zu\n", curr_N, size_t(1));
-        printf("M = %.10e\n", sys.mass[perm[sys.N-1]]);
-        printf("m = %.10e\n", sys.mass[perm[0]]);
-        
+            printf("################### N = %zu, s = %zu ###################\n", curr_N, size_t(1));
+            printf("curr_ratio = %.3e\n", curr_ratio);
+            /*printf("m = %.10e\n", sys.mass[perm[0]]);
+            printf("M = %.10e\n", sys.mass[perm[curr_N-1]]);
+            double min_m = 0.0;
+            double max_m = 0.0;
+            size_t min_idx = 0;
+            size_t max_idx = 0;
+            for(size_t i = 0;i < curr_N;i++)
+            {
+                if(max_m < sys.mass[i])
+                {
+                    max_idx = i;
+                    max_m = sys.mass[i];
+                }
+                else
+                {
+                    min_idx = i;
+                    min_m = sys.mass[i];
+                }
+            }
+
+            printf("min_m = %.10e at index %zu\n", min_m, min_idx);
+            printf("max_m = %.10e at index %zu\n", max_m, max_idx);
+            printf("perm[curr_N-1] = %zu\n", perm[curr_N-1]);
+            */
+            
 
 
-        double start = omp_get_wtime();
-        reduced_solver_omp(sys, 1, 1.0, true, vect_type, data_type);
-        double end = omp_get_wtime();
-        printf("Solver took: %fs\n",end-start);
+            double start = omp_get_wtime();
+            reduced_solver_omp(sys, 1, 1.0, true, vect_type, data_type);
+            double end = omp_get_wtime();
+            printf("Solver took: %fs\n",end-start);
 
-        std::array<double, 6> errors = calculate_force_error(sys, ref, data_type, verbose);
-        printf("Average force error: %.10e\n", errors[0]);
-        printf("Largest force error: %.10e\n", errors[1]);
-        printf("Largest to Average ratio: %.10e\n", errors[1]/errors[0]);
-        printf("Average normalized angle error: %.10e\n", errors[2]);
-        printf("Average normalized length error: %.10e\n", errors[3]);
-        printf("Largest normalized angle error: %.10e\n", errors[4]);
-        printf("Largest normalized length error: %.10e\n", errors[5]);
-        printf("Pi error: %.10e\n", abs(float(M_PI)- M_PI));
+            std::array<double, 6> errors = calculate_force_error(sys, ref, data_type, verbose);
+            printf("Average force error: %.10e\n", errors[0]);
+            printf("Largest force error: %.10e\n", errors[1]);
+            printf("Largest to Average ratio: %.10e\n", errors[1]/errors[0]);
+            printf("Average normalized angle error: %.10e\n", errors[2]);
+            printf("Average normalized length error: %.10e\n", errors[3]);
+            printf("Largest normalized angle error: %.10e\n", errors[4]);
+            printf("Largest normalized length error: %.10e\n\n", errors[5]);
 
-        float sqrt2f = std::sqrt(2.0f);
-        double sqrt2d = std::sqrt(2.0);
-
-        printf("Single sqrt(2) error: %.10e\n", (sqrt2f*sqrt2f-2.0));
-        printf("Double sqrt(2) error: %.10e\n", (sqrt2d*sqrt2d-2.0));
-
-        fprintf(output_file, "%zu, %s, %.5e, %.6e\n", curr_N, data_type == Data_type::DOUBLE_PRECISION ? "dp" : "sp", errors[3]*100.0, errors[2]*100.0);
+            fprintf(output_file, "%zu, %s, %.5e, %.5e, %.6e\n", curr_N, data_type == Data_type::DOUBLE_PRECISION ? "dp" : "sp", curr_ratio, errors[3]*100.0, errors[2]*100.0);
+        }
     }
     fclose(output_file);
 
     return 0;
 }
 
-int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t time_steps, double T, double ratio_start, double ratio_stop, double ratio_steps, std::string output_path, Vectorization_type vect_type, Data_type data_type, bool verbose)
+int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t time_steps, double T, double ratio_start, double ratio_stop, size_t ratio_steps, size_t rev_steps, double max_error, std::string output_path, Vectorization_type vect_type, Data_type data_type, bool verbose)
 {
     FILE* output_file = NULL;
     bool file_exists = (access(output_path.c_str(), F_OK) != -1);
@@ -897,7 +1003,7 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
     else
     {
         output_file = fopen(output_path.c_str(),"w");
-        fprintf(output_file, "N, precision, s, s_collapse, ratio, revs, T, U, E, E_dev, I'', pos_dev, vel_dev\n");
+        fprintf(output_file, "N, precision, s, s_collapse, ratio, max_error, last_E_dev, last_avg_pos_dev, last_avg_vel_dev, max_pos_dev, max_vel_dev\n");
     }
 
     //Values for constructing 2nd, 4th, 6th and 8th order leap frog integrators
@@ -947,7 +1053,7 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
         //delta_t: time_step
         double R = 1.0;
         double omega = (2.0 * M_PI);
-        double delta_t = 1.0/time_steps;
+        double delta_t = 1.0/rev_steps;
 
         double ratio_root = std::pow(ratio_stop/ratio_start, 1.0/double(ratio_steps));
         printf("ratio_root: %f, ratio_start: %f\n", ratio_root, ratio_start);
@@ -958,6 +1064,7 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
             NBody_system init_sys;
             init_sys.init_stable_orbiting_particles(curr_N, R, omega, curr_ratio);
             double T0 = compute_kinetic_energy(init_sys);
+            //double U0 = calculate_potential_energy(init_sys);
             double U0 = compute_potential_energy_avx2(init_sys);
             double I0 = compute_inertia(init_sys);
             double E0 = T0 + U0;
@@ -974,8 +1081,9 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
             double E_dev_sol = 0.0;
             double avg_pos_dev_sol = 0.0;
             double avg_vel_dev_sol = 0.0;
-
-            size_t lower_time_steps = 0;
+            double max_pos_dev_sol = 0.0;
+            double max_vel_dev_sol = 0.0;
+            /*size_t lower_time_steps = 0;
             size_t upper_time_steps = time_steps;
             size_t curr_time_steps = upper_time_steps/2;
             while(upper_time_steps - lower_time_steps > 1)
@@ -994,17 +1102,19 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
                 sys.init_stable_orbiting_particles(curr_N, R, omega, curr_ratio);
                 ref = sys;
 
-                reduced_solver_omp_lf(sys, curr_time_steps, delta_t, c, d, lf_steps, true);
-                
+                reduced_solver_omp_lf(sys, curr_time_steps, delta_t, c, d, lf_steps, true, data_type);
+                if(data_type == Data_type::SINGLE_PRECISION)
+                    sys.copy_to_double_precision();
                 ref.predict_stable_orbiting_particles(R, omega, curr_time_steps, time_steps);
                 //print_particles_contiguous(mass, pos_ref, vel_ref, force, curr_N);
 
 
 
                 T = compute_kinetic_energy(sys);
+                //U = calculate_potential_energy(sys);
                 U = compute_potential_energy_avx2(sys);
                 I = compute_inertia(sys);
-                E = T0 + U0;
+                E = T + U;
 
                 printf("\n########System condition after %zu timesteps########\n", curr_time_steps);
 
@@ -1016,7 +1126,7 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
                 printf("U = %f\n", U);
                 printf("I = %f\n", I);
                 printf("I'' = %f\n", 4*T + 2*U);
-                printf("E = %f\n", T+U);
+                printf("E = %f\n", E);
                 
                 double E_dev = abs((E0 - E)/E0);
                 printf("E_dev = %f\n", E_dev);
@@ -1034,15 +1144,96 @@ int omp_ratio_accuracy(size_t start_N, size_t step_N, size_t num_steps, size_t t
                     upper_time_steps = curr_time_steps;
                     curr_time_steps = (upper_time_steps + lower_time_steps)/2;
                 }
+            }*/
+            NBody_system sys;
+            NBody_system ref;
+            sys.init_stable_orbiting_particles(curr_N, R, omega, curr_ratio);
+            ref = sys;
+            size_t* perm = new size_t[curr_N];
+            for(size_t i = 0;i < curr_N;i++)
+                perm[i] = i;
+
+            std::random_device rd;
+            std::mt19937 g(rd());
+
+            std::shuffle(&perm[0], &perm[curr_N], g);
+
+            sys.apply_permutation(perm);
+            ref.apply_permutation(perm);
+            size_t s_collapse = time_steps;
+            for(size_t t = 1;t <= time_steps;t++)
+            {
+                printf("curr: %zu\n", t);
+                    
+
+                double T = 0.0;
+                double U = 0.0;
+                double I = 0.0;
+                double E = 0.0;    
+                
+                
+                reduced_solver_omp_lf(sys, 1, delta_t, c, d, lf_steps, true, data_type);
+                if(data_type == Data_type::SINGLE_PRECISION)
+                    sys.copy_to_double_precision();
+                ref.predict_stable_orbiting_particles(R, omega, t, rev_steps);
+                ref.apply_permutation(perm);
+                //print_particles_contiguous(mass, pos_ref, vel_ref, force, curr_N);
+
+
+
+                T = compute_kinetic_energy(sys);
+                //U = calculate_potential_energy(sys);
+                U = compute_potential_energy_avx2(sys);
+                I = compute_inertia(sys);
+                E = T + U;
+                if(verbose)
+                    printf("\n########System condition after %zu timesteps########\n", t);
+
+
+                std::array<double,2> pos_devs = calculate_deviation(sys.pos, ref.pos, curr_N);
+                std::array<double,2> vel_devs = calculate_deviation(sys.vel, ref.vel, curr_N);
+
+                if(verbose)
+                {
+                    printf("T = %f\n", T);
+                    printf("U = %f\n", U);
+                    printf("I = %f\n", I);
+                    printf("I'' = %f\n", 4*T + 2*U);
+                    printf("E = %f\n", E);
+                }
+                
+                double E_dev = abs((E0 - E)/E0);
+                if(verbose)
+                {
+                    printf("E_dev = %f\n", E_dev);
+                    printf("Average pos deviation from reference: %.13f\n", pos_devs[0]);
+                    printf("Average vel deviation from reference: %.13f\n", vel_devs[0]);
+                    printf("Maximum pos length deviation from reference: %.13f\n", pos_devs[1]);
+                    printf("Maximum vel length deviation from reference: %.13f\n", vel_devs[1]);
+                }
+                
+                if(E_dev >= 1.0 || pos_devs[1] >= max_error || vel_devs[1] >= max_error) 
+                {
+                    s_collapse = t;
+                    break;
+                }
+                else
+                {
+                    E_dev_sol = E_dev;
+                    avg_pos_dev_sol = pos_devs[0];
+                    avg_vel_dev_sol = vel_devs[0];
+                    max_pos_dev_sol = pos_devs[1];
+                    max_vel_dev_sol = vel_devs[1];
+                }
             }
-            curr_time_steps = lower_time_steps;
-            printf("true solution = %zu\n", curr_time_steps);
+            delete[] perm;
+
+            printf("true solution = %zu\n", s_collapse);
             if(output_file != NULL)
             {
-                fprintf(output_file, "%zu, %s, %zu, %zu, %f, %f, %f, %f\n", curr_N, data_type == Data_type::DOUBLE_PRECISION ? "dp" : "sp", time_steps, curr_time_steps, curr_ratio, E_dev_sol, avg_pos_dev_sol, avg_vel_dev_sol);
+                fprintf(output_file, "%zu, %s, %zu, %zu, %f, %f, %f, %f, %f, %f, %f\n", curr_N, data_type == Data_type::DOUBLE_PRECISION ? "dp" : "sp", time_steps, s_collapse, curr_ratio, max_error, E_dev_sol, avg_pos_dev_sol, avg_vel_dev_sol, max_pos_dev_sol, max_vel_dev_sol);
             }
         }
-        
 
         printf("\n\n--------------------------------------------\n--------------------------------------------\n\n\n");
     }

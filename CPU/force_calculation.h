@@ -16,6 +16,7 @@ void compute_forces_full_avx2(NBody_system& nb_sys, double*** local_force, doubl
 double compute_kinetic_energy(NBody_system& nb_sys);
 double compute_potential_energy_avx2(NBody_system& nb_sys);
 double compute_potential_energy_avx2_sp(NBody_system& nb_sys);
+double calculate_potential_energy(NBody_system& nb_sys);
 double compute_inertia(NBody_system& nb_sys);
 
 

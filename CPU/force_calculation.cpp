@@ -890,6 +890,7 @@ void compute_forces_avx2_blocked_sp(NBody_system& nb_sys, float* recv_pos[DIM], 
     }
 }
 
+#ifdef AVX512F
 void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[DIM], double* recv_force[DIM], double*** local_force, double*** local_recv_force, size_t local_N, size_t rank, size_t comm_sz, size_t recv_round, size_t num_threads)
 {
 #pragma omp parallel
@@ -903,17 +904,8 @@ void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[
         double* thread_local_recv_force_x = local_recv_force[thread_rank][X];
         double* thread_local_recv_force_y = local_recv_force[thread_rank][Y];
         double* thread_local_recv_force_z = local_recv_force[thread_rank][Z];
-        double* pos_x = nb_sys.pos[X];
-        double* pos_y = nb_sys.pos[Y];
-        double* pos_z = nb_sys.pos[Z];
-        double* recv_pos_x = recv_pos[X];
-        double* recv_pos_y = recv_pos[Y];
-        double* recv_pos_z = recv_pos[Z];
-
-        //Reset all forces before each timestep
-        //TODO: Might be inefficient access pattern
-#pragma omp for simd
-        for(size_t i = 0;i < local_N;i++)
+        double* pos_x = nb_sys.pos[X];void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[DIM], double* recv_force[DIM], double*** local_force, double*** local_recv_force, size_t local_N, size_t rank, size_t comm_sz, size_t recv_round, size_t num_threads)
+{
         {
             for(size_t thread = 0; thread < num_threads;thread++)
             {
@@ -952,15 +944,8 @@ void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[
             for(size_t k = 0;k < k_bound;k++)
             {
                 // G-mass product can be precalculated as the mass does not change between timesteps
-                double pre_calc = -G*nb_sys.mass[rank*local_N+k];
-
-                //If k is in the interval of all previous block indices, then calculate all forcepairs
-                //Otherwise only calculate if k < q
-                size_t q = (rank < (rank+recv_round)%comm_sz ? k : k + 1);
-                q = std::max(q, curr_block);
-
-                //Fix alignment to the next 32-bit aligned address
-                //All arrays are allocated as 64-bit aligned
+                double pre_calc = -G*nb_sys.mass[rank*local_N+k];void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[DIM], double* recv_force[DIM], double*** local_force, double*** local_recv_force, size_t local_N, size_t rank, size_t comm_sz, size_t recv_round, size_t num_threads)
+{
                 size_t align_offset = (q & 0b111);
                 
                 size_t mass_q_offset = ((rank + recv_round)%comm_sz)*local_N;
@@ -1008,9 +993,7 @@ void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[
                 {
                     //diff = pos[k] - pos[q]
                     __m512d diff_x = pos_k_x;
-                    __m512d diff_y = pos_k_y;
-                    __m512d diff_z = pos_k_z;
-                    __m512d pos_q_x = _mm512_load_pd(&(recv_pos_x[q]));
+                    __m512d diff_y = pos_k_y;These switches enable the use of instructions in the MMX, SSE, SSE2, SSE3, SSSE3, SSE4, SSE4A, SSE4.1, SSE4.2, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD, AVX512VL, AVX512BW, AVX512DQ, AVX512IFMA, AVX512VBMI, SHA, AES, PCLMUL, CLFLUSHOPT, CLWB, FSGSBASE, PTWRITE, RDRND, F16C, FMA, PCONFIG, WBNOINVD, FMA4, PREFETCHW, RDPID, PREFETCHWT1, RDSEED, SGX, XOP, LWP, 3DNow!, enhanced 3DNow!, POPCNT, ABM, ADX, BMI, BMI2, LZCNT, FXSR, XSAVE, XSAVEOPT, XSAVEC, XSAVES, RTM, HLE, TBM, MWAITX, CLZERO, PKU, AVX512VBMI2, GFNI, VAES, WAITPKG, VPCLMULQDQ, AVX512BITALG, MOVDIRI, MOVDIR64B, AVX512BF16, ENQCMD, AVX512VPOPCNTDQ, AVX5124FMAPS, AVX512VNNI, AVX5124VNNIW, SERIALIZE, UINTR, HRESET, AMXTILE, AMXINT8, AMXBF16, KL, WIDEKL, AVXVNNI or CLDEMOTE extended instruction sets. Each has a corresponding -mno- option to disable use of these instructions. oad_pd(&(recv_pos_x[q]));
                     __m512d pos_q_y = _mm512_load_pd(&(recv_pos_y[q]));
                     __m512d pos_q_z = _mm512_load_pd(&(recv_pos_z[q]));
                     diff_x = _mm512_sub_pd(diff_x, pos_q_x);
@@ -1124,7 +1107,14 @@ void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[
         }
     }
 }
+#else
+void compute_forces_avx512_rsqrt_blocked(NBody_system& nb_sys, double* recv_pos[DIM], double* recv_force[DIM], double*** local_force, double*** local_recv_force, size_t local_N, size_t rank, size_t comm_sz, size_t recv_round, size_t num_threads)
+{
+    printf("AVX512 not supported!\n");
+}
+#endif
 
+#ifdef AVX512F
 void compute_forces_avx512_rsqrt_4i_blocked(NBody_system& nb_sys, double* recv_pos[DIM], double* recv_force[DIM], double*** local_force, double*** local_recv_force, size_t local_N, size_t rank, size_t comm_sz, size_t recv_round, size_t num_threads)
 {
 #pragma omp parallel
@@ -1550,8 +1540,14 @@ void compute_forces_avx512_rsqrt_4i_blocked(NBody_system& nb_sys, double* recv_p
         }
     }
 }
+#else
+void compute_forces_avx512_rsqrt_4i_blocked(NBody_system& nb_sys, double* recv_pos[DIM], double* recv_force[DIM], double*** local_force, double*** local_recv_force, size_t local_N, size_t rank, size_t comm_sz, size_t recv_round, size_t num_threads)
+{
+    printf("AVX512 not supported!\n");
+}
+#endif
 
-
+#ifdef AVX512F
 void compute_forces_full_avx2(NBody_system& nb_sys, double*** local_force, double** local_pos, double* local_mass, __mmask8** sqrt_mask, size_t local_N, size_t rank, size_t comm_sz, size_t num_threads)
 {
 #pragma omp parallel
@@ -1715,6 +1711,12 @@ void compute_forces_full_avx2(NBody_system& nb_sys, double*** local_force, doubl
     }
 
 }
+#else
+void compute_forces_full_avx2(NBody_system& nb_sys, double*** local_force, double** local_pos, double* local_mass, __mmask8** sqrt_mask, size_t local_N, size_t rank, size_t comm_sz, size_t num_threads)
+{
+    printf("AVX512 not supported!\n");
+}
+#endif
 
 double compute_kinetic_energy(NBody_system& nb_sys)
 {
@@ -1730,9 +1732,9 @@ double compute_potential_energy_avx2(NBody_system& nb_sys)
     double total_U = 0.0;
     #pragma omp parallel
     {
+        double U = 0.0;
         size_t thread_rank = omp_get_thread_num();
         size_t num_threads = omp_get_num_threads();
-        double U[num_threads];
         //The inner loop iteration is chunked into blocks to improve cache usage
         //If each inner loop only iterates over a maximum of 2048 elements, then these elements remain in cache for all outer loop iterations
         //2048 elements/particles use 112KiB of data
@@ -1782,7 +1784,7 @@ double compute_potential_energy_avx2(NBody_system& nb_sys)
                         diff[Y] = nb_sys.pos[Y][k] - nb_sys.pos[Y][q];
                         diff[Z] = nb_sys.pos[Z][k] - nb_sys.pos[Z][q];
                         double dist = std::sqrt(diff[X]*diff[X] + diff[Y]*diff[Y] + diff[Z]*diff[Z]);
-                        U[thread_rank] += pre_calc*nb_sys.mass[q]/(dist);
+                        U += pre_calc*nb_sys.mass[q]/(dist);
                     }
                     break;
                 }
@@ -1836,7 +1838,7 @@ double compute_potential_energy_avx2(NBody_system& nb_sys)
                 __m128d vec_U_high = _mm256_extractf128_pd(vec_U,1);
                 vec_U_low = _mm_add_pd(vec_U_low, vec_U_high);
                 __m128d vec_U_high64 = _mm_unpackhi_pd(vec_U_low, vec_U_low);
-                U[thread_rank] += _mm_cvtsd_f64(_mm_add_sd(vec_U_low, vec_U_high64));
+                U += _mm_cvtsd_f64(_mm_add_sd(vec_U_low, vec_U_high64));
 
                 //Loop remainder
                 for(;q < k_bound;q++)
@@ -1847,19 +1849,42 @@ double compute_potential_energy_avx2(NBody_system& nb_sys)
                     diff[Y] = nb_sys.pos[Y][k] - nb_sys.pos[Y][q];
                     diff[Z] = nb_sys.pos[Z][k] - nb_sys.pos[Z][q];
                     double dist = std::sqrt(diff[X]*diff[X] + diff[Y]*diff[Y] + diff[Z]*diff[Z]);
-                    U[thread_rank] += pre_calc*nb_sys.mass[q]/(dist);
+                    U += pre_calc*nb_sys.mass[q]/(dist);
                 }
             }
         }
-        #pragma omp barrier
-        if(thread_rank == 0)
-        {
-            for(size_t i = 0;i < num_threads;i++)
-                total_U += U[i];
-        }
+        #pragma omp critical
+        total_U += U;
     }
     return -total_U;
 }
+double calculate_potential_energy(NBody_system& nb_sys)
+{
+    
+    double total_U = 0.0;
+    #pragma omp parallel
+    {
+        double U = 0.0;
+        #pragma omp for schedule(static,1)
+        for(size_t k = 0;k < nb_sys.N;k++)
+        {
+            for(size_t q = k+1;q < nb_sys.N;q++)
+            {
+                    double diff[DIM];
+                    diff[X] = nb_sys.pos[X][k] - nb_sys.pos[X][q];
+                    diff[Y] = nb_sys.pos[Y][k] - nb_sys.pos[Y][q];
+                    diff[Z] = nb_sys.pos[Z][k] - nb_sys.pos[Z][q];
+                    double dist = std::sqrt(diff[X]*diff[X] + diff[Y]*diff[Y] + diff[Z]*diff[Z]);
+                    U += nb_sys.mass[k]*nb_sys.mass[q]/(dist);
+            }
+        }
+        #pragma omp critical
+        total_U += U;
+    }
+    return -G*total_U;
+}
+
+
 double compute_potential_energy_avx2_sp(NBody_system& nb_sys)
 {
     return 0.0;
