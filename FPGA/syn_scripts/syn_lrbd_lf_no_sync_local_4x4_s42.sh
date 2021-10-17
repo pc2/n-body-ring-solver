@@ -3,7 +3,7 @@
 #SBATCH -J "NBody Reduced LRBD solver first synthesis"
 #SBATCH -p fpgasyn
 #SBATCH --mem=120000MB
-#SBATCH -t 48:00:00
+#SBATCH -t 36:00:00
 
 module reset 
 module load nalla_pcie/19.4.0_max

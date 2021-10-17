@@ -12,11 +12,11 @@ all: main.out main.emu
 #all: main.out main.emu ring_full ring_full_rsqrt ring_full_lf ring_red ring_red_lower_tri ring_full_lf_pipelined_blocks ring_full_ivdep_safelen
 #Executables
 
-main.out: main.o opencl.o options.o solver.o execution_data.o error.o 
-		g++ -o main.out main.o opencl.o options.o solver.o execution_data.o error.o $(AOCL_LINK_CONFIG) -lmpi
+main.out: main.o opencl.o options.o solver.o execution_data.o accuracy_evaluation.o error.o 
+		g++ -o main.out main.o opencl.o options.o solver.o execution_data.o accuracy_evaluation.o error.o $(AOCL_LINK_CONFIG) -lmpi
 
-main.emu: main.o opencl.o options.o solver.o execution_data.o error.o
-		g++ -o main.emu main.o opencl.o options.o solver.o execution_data.o error.o $(AOCL_LINK_CONFIG_EMU) -lmpi
+main.emu: main.o opencl.o options.o solver.o execution_data.o accuracy_evaluation.o error.o
+		g++ -o main.emu main.o opencl.o options.o solver.o execution_data.o accuracy_evaluation.o error.o $(AOCL_LINK_CONFIG_EMU) -lmpi
 
 #Object files
 main.o : host/main.cpp 
@@ -30,6 +30,9 @@ error.o: host/error.cpp host/inc/error.h
 
 execution_data.o: host/execution_data.cpp host/inc/execution_data.h
 		g++ -c host/execution_data.cpp $(HOST_COMPILE_CONFIG) $(AOCL_COMPILE_CONFIG) -I $(AOCL_UTILS_INC) -I $(HOST_INC)
+
+accuracy_evaluation.o: host/accuracy_evaluation.cpp host/inc/accuracy_evaluation.h
+		g++ -c host/accuracy_evaluation.cpp $(HOST_COMPILE_CONFIG) $(AOCL_COMPILE_CONFIG) -I $(AOCL_UTILS_INC) -I $(HOST_INC)
 
 opencl.o: $(COMMON_DIR)/opencl.cpp
 		g++ -c $(COMMON_DIR)/opencl.cpp $(HOST_COMPILE_CONFIG) $(AOCL_COMPILE_CONFIG) -I $(AOCL_UTILS_INC)
@@ -45,7 +48,7 @@ ring_lrb_lf_no_sync_local_nd: main.emu ring_lrb_lf_no_sync_local_nd0.aocx
 ring_lrb_lf_no_sync_local_nd0.aocx: device/ring_lrb_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrb_lf_no_sync_local.cl -o ring_lrb_lf_no_sync_local0.aocx -ffp-reassoc -ffp-contract=fast
 
-ring_lrbd_lf_no_sync_local: main.emu ring_lrbd_lf_no_sync_local0.aocx ring_lrbd_lf_no_sync_local1_nd.aocx 
+ring_lrbd_lf_no_sync_local: main.emu ring_lrbd_lf_no_sync_local0.aocx ring_lrbd_lf_no_sync_local1_nd.aocx ring_lrbd_lf_no_sync_local2_nd.aocx ring_lrbd_lf_no_sync_local3_nd.aocx
 ring_lrbd_lf_no_sync_local0.aocx: device/ring_lrbd_lf_no_sync_local.cl
 		aoc -march=emulator -v -g device/ring_lrbd_lf_no_sync_local.cl -o ring_lrbd_lf_no_sync_local0.aocx -ffp-reassoc -ffp-contract=fast -DDBG_PRINT -DCOMPILE_EMULATION -DEMULATION0
 ring_lrbd_lf_no_sync_local1.aocx: device/ring_lrbd_lf_no_sync_local.cl

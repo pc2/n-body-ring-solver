@@ -1684,7 +1684,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         printf ("Failed to get aocl_mmd_card_info_fn address\n");
     }
     auto end = std::chrono::high_resolution_clock::now();
-    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     int fpga_comm_sz = exec_data->comm_sz * exec_data->num_devices;
     for(int dev = 0;dev < exec_data->num_devices; dev++)
     {
@@ -1769,9 +1768,7 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         checkError(status, exec_data, "Failed to write to c coefficients Memory Buffer");
         status = clEnqueueWriteBuffer(exec_data->compute_queue[dev], lf_d_mem[dev], CL_TRUE, 0, (exec_data->lf_steps-1)*sizeof(cl_float), d_sp, 0, NULL, NULL);
         checkError(status, exec_data, "Failed to write to d coefficients Memory Buffer");
-        end = std::chrono::high_resolution_clock::now();
-        if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
-        start = std::chrono::high_resolution_clock::now();
+
         //Compute Kernel Arguments
         cl_uint arg_index = 0;
         if(exec_data->debug)printf("Setting compute Kernel Arguments for device %d\n", dev);
@@ -1915,8 +1912,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
             printf("time_steps: %d\n", time_steps);
             fflush(stdout);
         }
-        end = std::chrono::high_resolution_clock::now();
-        if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     }
     for(size_t i = 0;i < exec_data->num_devices;i++)
     {
@@ -1963,7 +1958,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
     float average_power = 0.0f;
     size_t num_power_evaluations = 0;
     end = std::chrono::high_resolution_clock::now();
-    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     if(!exec_data->is_emulation)
     {
         while(std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count() < predicted_time - 2.0)
@@ -1986,7 +1980,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         else
             average_power = -1.0;
     }
-    start = std::chrono::high_resolution_clock::now();
     for(size_t i = 0;i < exec_data->num_devices;i++)
     {
         clWaitForEvents(1, &timing_event[i]);
@@ -2006,9 +1999,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         status = clFinish(exec_data->integrator_queue[i]);
         checkError(status, exec_data, "Failed to finish integrator kernel");
     }
-    end = std::chrono::high_resolution_clock::now();
-    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
-    start = std::chrono::high_resolution_clock::now();
     if(exec_data->debug)printf("Sucessfully completed Tasks\n");
     fflush(stdout);
     float gather_power[exec_data->comm_sz];
@@ -2029,9 +2019,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
             *power_consumption = average_power;
         printf("Power consumption for %d devices: %fs\n", fpga_comm_sz, average_power);
     }
-    end = std::chrono::high_resolution_clock::now();
-    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
-    start = std::chrono::high_resolution_clock::now();
     for(int dev = 0; dev < exec_data->num_devices;dev++)
     {
         if(exec_data->debug)printf("Reading memory back from device %d\n", dev);
@@ -2108,8 +2095,6 @@ double lrbd_solver_sp(Execution_data* exec_data, cl_double K, cl_double* mass, c
         clReleaseMemObject(lf_d_mem[dev]);
         fflush(stdout);
     }
-    end = std::chrono::high_resolution_clock::now();
-    if(exec_data->rank == 0)printf("time: %f\n", std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count());
     delete[] local_coeff;
     delete[] local_mass;
     delete[] local_pos;
