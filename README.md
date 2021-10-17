@@ -71,6 +71,15 @@ srun -p fpga -A your-account --constraint=19.4.0_max -N $nodes --fpgalink=ringN 
 ```
 Where `$nodes` is the number of requested nodes and `$curr_N` is the input size.
 
+### Accuracy Experiments
+
+Switch back to the CPU directory. The accuracy experiments can be carried out by submitting the following jobscript:
+```
+sbatch -A hpc-lco-kenter slurm_scripts/accuracy_experiment.sh
+```
+The result of the force accumulation experiment are stored in the **force-acc.csv** file.   
+The result of the ratio dependent analytic system collapse experiment are stored in the **ratio-collapse.csv** file.   
+
 ### Plotting
 The plotting was done using the scripts and csv files in the **final_results** directory with matplotlib 3.1.2.
 The plots are rendered by the following scripts invocations:
