@@ -1,3 +1,5 @@
+
+[![DOI](https://zenodo.org/badge/356306604.svg)](https://zenodo.org/badge/latestdoi/356306604)
 ## N-Body Ring Solver FPGA and CPU Implementations
 
 This repository contains a novel design and implementation for distributed FPGA and CPU N-Body solvers. An accompanying publication is in preparation. The benchmarks presented in the paper can be carried out by following the steps below on the [noctua](https://wikis.uni-paderborn.de/pc2doc/Noctua) cluster of [PC²](https://pc2.uni-paderborn.de/). For information on accessing the system, also refer to [this page](https://pc2.uni-paderborn.de/hpc-services/our-services/system-access-application).
@@ -96,3 +98,5 @@ The csvplot script synopsis is:
 python3 csvplot.py input.csv [list of x-axis columns] [list of y-axis columns] [list of first rows] [list of last rows] ignored "Title" "x-Axis Label" "y-Axis Label" "List of legend entries"
 ```
 The csv files themselves are stitched together from a mixture of CPU and FPGA results and older results, but all results should be reproducible using the CPU and FPGA scripts.
+
+
