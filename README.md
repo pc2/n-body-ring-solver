@@ -2,7 +2,9 @@
 [![DOI](https://zenodo.org/badge/356306604.svg)](https://zenodo.org/badge/latestdoi/356306604)
 ## N-Body Ring Solver FPGA and CPU Implementations
 
-This repository contains a novel design and implementation for distributed FPGA and CPU N-Body solvers. An accompanying publication is in preparation. The benchmarks presented in the paper can be carried out by following the steps below on the [noctua](https://wikis.uni-paderborn.de/pc2doc/Noctua) cluster of [PC²](https://pc2.uni-paderborn.de/). For information on accessing the system, also refer to [this page](https://pc2.uni-paderborn.de/hpc-services/our-services/system-access-application).
+This repository contains a novel design and implementation for distributed FPGA and CPU N-Body solvers. The technical background and evaluation is available as open access publication [(doi/10.1145/3491235)](https://dl.acm.org/doi/10.1145/3491235) in the ACM Transactions on Reconfigurable Technology and Systems (TRETS). Please cite this article if you use or build upon this repository.
+
+The benchmarks presented in the publication can be carried out by following the steps below on the [Noctua1](https://wikis.uni-paderborn.de/pc2doc/Noctua) cluster of [PC²](https://pc2.uni-paderborn.de/). For information on accessing the system, also refer to [this page](https://pc2.uni-paderborn.de/hpc-services/our-services/system-access-application).
 For further information on how to use the FPGA and CPU programs, refer to the Readme files in the corresponding directories.
 
 ### CPU Benchmarks
